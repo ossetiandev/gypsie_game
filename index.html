@@ -225,6 +225,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ================================================================
    0. КОНСТАНТЫ И СОСТОЯНИЕ
@@ -241,7 +242,7 @@ const keys = {}, mouse = { down:false };
 const harvest = { active:false, timer:0 };
 const aimPoint = new THREE.Vector3(); let hasAim=false, nearField=false;
 const FIELD = { cx:-11, cz:0, n:15, sp:2.2 };
-const GATE  = { x:20, z:1.6, r:3.0 };  // зона обмена у Индийских ворот
+const GATE  = { x:20, z:1.6, r:3.0 };
 const SOIL_TOP = 0.15;
 
 /* ================================================================
@@ -292,9 +293,9 @@ scene.fog = new THREE.Fog(0x8fd9ff, 70, 175);
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 400);
 camera.rotation.order='YXZ';
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5)); // бережём слабые GPU
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -320,21 +321,18 @@ const ground = new THREE.Mesh(new THREE.BoxGeometry(92,3,92),
   [M(0x8a5a2b),M(0x8a5a2b),M(0x67bd45),M(0x6a4321),M(0x8a5a2b),M(0x8a5a2b)]);
 ground.position.y=-1.5; ground.receiveShadow=true; scene.add(ground);
 
-// Песчаная площадка под золотом
 const soil = new THREE.Mesh(new THREE.BoxGeometry(36,.3,36), M(0xd9c07a));
 soil.position.set(FIELD.cx, SOIL_TOP/2-.001, FIELD.cz);
 soil.receiveShadow=true; scene.add(soil);
 
-// Тропинки
 function pathBox(w,l,x,z,ry=0){
   const p=new THREE.Mesh(new THREE.BoxGeometry(w,.12,l), M(0xe6c687));
   p.position.set(x,.05,z); p.rotation.y=ry; p.receiveShadow=true; scene.add(p);
 }
-pathBox(13.5,3.2, 11.75, 1.6);          // поле → ворота
-pathBox(8.5,3.2, 25.75, 1.6);           // ворота → развилка
-pathBox(3.2,6, 31.6, -0.9, -.65);       // развилка → особняк
+pathBox(13.5,3.2, 11.75, 1.6);
+pathBox(8.5,3.2, 25.75, 1.6);
+pathBox(3.2,6, 31.6, -0.9, -.65);
 
-// Пятна травы
 {
   const g=new THREE.CircleGeometry(1,6).rotateX(-Math.PI/2);
   const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),55);
@@ -348,7 +346,6 @@ pathBox(3.2,6, 31.6, -0.9, -.65);       // развилка → особняк
   }
   im.receiveShadow=true; scene.add(im);
 }
-// Пучки травы
 {
   const g=new THREE.ConeGeometry(.13,.42,4);
   const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),150);
@@ -357,7 +354,7 @@ pathBox(3.2,6, 31.6, -0.9, -.65);       // развилка → особняк
   while(i<150&&tries++<800){
     const x=Math.random()*86-43,z=Math.random()*86-43;
     if(Math.abs(x-FIELD.cx)<18.5&&Math.abs(z-FIELD.cz)<18.5)continue;
-    if(x>16&&Math.abs(z)<12)continue; // зона ворот/особняка
+    if(x>16&&Math.abs(z)<12)continue;
     d.position.set(x,.2,z); d.rotation.y=Math.random()*Math.PI; d.updateMatrix();
     im.setMatrixAt(i,d.matrix);
     im.setColorAt(i,col.set(Math.random()<.5?0x3f9e3f:0x5fc94f));
@@ -365,7 +362,6 @@ pathBox(3.2,6, 31.6, -0.9, -.65);       // развилка → особняк
   }
   scene.add(im);
 }
-// Забор
 {
   const g=new THREE.BoxGeometry(.35,1.3,.35);
   const pos=[];
@@ -380,7 +376,6 @@ pathBox(3.2,6, 31.6, -0.9, -.65);       // развилка → особняк
   [[-44.5],[44.5]].forEach(([x])=>{[.5,.95].forEach(y=>{
     const r=new THREE.Mesh(railG,M(0x9a6a33));r.rotation.y=Math.PI/2;r.position.set(x,y,0);r.castShadow=true;scene.add(r);});});
 }
-// Деревья и камни
 function tree(x,z,s){
   const g=new THREE.Group();
   const trunk=new THREE.Mesh(new THREE.BoxGeometry(.7,1.8,.7),M(0x8a5a2b));
@@ -396,7 +391,6 @@ tree(-38,-30,1.2);tree(-34,28,1);tree(10,-36,1.35);tree(36,-32,1);tree(38,30,1.1
   const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.8+Math.random()*.6,0),M(0x9aa3ad));
   r.scale.y=.6;r.position.set(x,.25,z);r.rotation.y=Math.random()*3;r.castShadow=true;scene.add(r);
 });
-// Таблички
 function makeSign(text,x,z,ry){
   const g=new THREE.Group();
   const post=new THREE.Mesh(new THREE.BoxGeometry(.22,1.8,.22),M(0x8a5a2b));
@@ -417,7 +411,6 @@ function makeSign(text,x,z,ry){
 makeSign('✨ ЗОЛОТЫЕ ПЕСКИ',-1,19.5,Math.PI);
 makeSign('ИНДИЙСКИЕ ВОРОТА →',12,3.6,Math.PI/2);
 
-// Облака
 const clouds=[];
 for(let i=0;i<6;i++){
   const g=new THREE.Group();
@@ -433,73 +426,105 @@ for(let i=0;i<6;i++){
 }
 
 /* ================================================================
-   4. ЗОЛОТЫЕ ПЕСКИ: слитки, монеты, кольца, самородки, короны
+   4. ЗОЛОТЫЕ ПЕСКИ — INSTANCED (быстро даже на слабом GPU)
+   225 предметов = всего 5 InstancedMesh (5 draw call'ов + тени)
 ================================================================ */
-const goldMat = new THREE.MeshStandardMaterial({color:0xffcf40,metalness:.85,roughness:.28,envMapIntensity:1.2});
-const gemMat  = new THREE.MeshStandardMaterial({color:0xe63956,metalness:.3,roughness:.2});
-const ITEMS = {
+const goldMat=new THREE.MeshStandardMaterial({color:0xffcf40,metalness:.85,roughness:.28,envMapIntensity:1.2});
+const crownMat=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.75,roughness:.3,envMapIntensity:1.1});
+const ITEMS={
   ingot:{value:1,c:0xffd24a},
   coins:{value:1,c:0xffe071},
   nugget:{value:1,c:0xf0b429},
   ring:{value:2,c:0xffdf6b},
   crown:{value:3,c:0xffc61a},
 };
-function pickType(){
-  const r=Math.random();
-  if(r<.38)return'ingot'; if(r<.62)return'coins'; if(r<.78)return'nugget';
-  if(r<.92)return'ring'; return'crown';
+function paint(geo,hex){
+  const c=new THREE.Color(hex),n=geo.attributes.position.count,a=new Float32Array(n*3);
+  for(let i=0;i<n;i++){a[i*3]=c.r;a[i*3+1]=c.g;a[i*3+2]=c.b;}
+  geo.setAttribute('color',new THREE.BufferAttribute(a,3));
+  return geo;
 }
-function buildItemMesh(type){
-  if(type==='ingot'){
-    const g=new THREE.CylinderGeometry(.26,.42,.85,4);
-    g.rotateY(Math.PI/4); g.rotateZ(Math.PI/2);
-    const m=new THREE.Mesh(g,goldMat); m.position.y=.26; m.castShadow=true; return m;
-  }
-  if(type==='coins'){
-    const grp=new THREE.Group();
-    [[0,0,.05],[.08,.05,.13],[-.05,-.06,.21]].forEach(([ox,oz,y],i)=>{
-      const c=new THREE.Mesh(new THREE.CylinderGeometry(.4,.4,.08,14),goldMat);
-      c.position.set(ox,y,oz); c.rotation.y=i*.7; c.castShadow=true; grp.add(c);
-    });
-    return grp;
-  }
-  if(type==='ring'){
-    const m=new THREE.Mesh(new THREE.TorusGeometry(.3,.11,8,16),goldMat);
-    m.position.y=.34; m.rotation.y=.5; m.castShadow=true; return m;
-  }
-  if(type==='nugget'){
-    const m=new THREE.Mesh(new THREE.DodecahedronGeometry(.36,0),goldMat);
-    m.position.y=.3; m.rotation.set(Math.random(),Math.random(),0); m.castShadow=true; return m;
-  }
-  // crown
-  const grp=new THREE.Group();
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(.34,.38,.24,10),goldMat);
-  base.position.y=.12;base.castShadow=true;grp.add(base);
+function makeIngotGeo(){
+  const g=new THREE.CylinderGeometry(.26,.42,.85,4);
+  g.rotateY(Math.PI/4);g.rotateZ(Math.PI/2);g.translate(0,.26,0);return g;
+}
+function makeCoinsGeo(){
+  const parts=[];
+  [[0,0,.05,0],[.08,.05,.13,.7],[-.05,-.06,.21,1.4]].forEach(([ox,oz,y,ry])=>{
+    const c=new THREE.CylinderGeometry(.4,.4,.08,14);
+    c.rotateY(ry);c.translate(ox,y,oz);parts.push(c);
+  });
+  return mergeGeometries(parts);
+}
+function makeNuggetGeo(){
+  const g=new THREE.DodecahedronGeometry(.36,0);g.translate(0,.3,0);return g;
+}
+function makeRingGeo(){
+  const g=new THREE.TorusGeometry(.3,.11,8,16);g.translate(0,.34,0);return g;
+}
+function makeCrownGeo(){
+  const parts=[];
+  const base=new THREE.CylinderGeometry(.34,.38,.24,10);
+  paint(base,0xffc61a);base.translate(0,.12,0);parts.push(base);
   for(let i=0;i<5;i++){
     const a=i/5*Math.PI*2;
-    const sp=new THREE.Mesh(new THREE.ConeGeometry(.07,.28,4),goldMat);
-    sp.position.set(Math.cos(a)*.27,.34,Math.sin(a)*.27);grp.add(sp);
+    const sp=new THREE.ConeGeometry(.07,.28,4);
+    paint(sp,0xffc61a);sp.translate(Math.cos(a)*.27,.34,Math.sin(a)*.27);parts.push(sp);
   }
-  const ball=new THREE.Mesh(new THREE.SphereGeometry(.07,6,5),goldMat);
-  ball.position.y=.5;grp.add(ball);
-  const gem=new THREE.Mesh(new THREE.SphereGeometry(.06,6,5),gemMat);
-  gem.position.set(0,.14,.36);grp.add(gem);
-  return grp;
+  const ball=new THREE.SphereGeometry(.07,6,5);paint(ball,0xffc61a);ball.translate(0,.5,0);parts.push(ball);
+  const gem=new THREE.SphereGeometry(.07,6,5);paint(gem,0xe63956);gem.translate(0,.14,.35);parts.push(gem);
+  return mergeGeometries(parts);
 }
-const goldItems=[];
+
+// Данные всех предметов
+const itemData=[];
 for(let r=0;r<FIELD.n;r++){
   for(let c=0;c<FIELD.n;c++){
-    const type=pickType();
-    const x=FIELD.cx+(c-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4;
-    const z=FIELD.cz+(r-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4;
-    const g=new THREE.Group();
-    const mesh=buildItemMesh(type);
-    g.add(mesh);
-    g.position.set(x,SOIL_TOP,z);
-    const base=.92+Math.random()*.18;
-    g.scale.setScalar(base);
-    scene.add(g);
-    goldItems.push({group:g,mesh,type,x,z,amount:1,phase:Math.random()*6.28,baseScale:base});
+    const rr=Math.random();
+    const type=rr<.38?'ingot':rr<.62?'coins':rr<.78?'nugget':rr<.92?'ring':'crown';
+    itemData.push({
+      type,
+      x:FIELD.cx+(c-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4,
+      z:FIELD.cz+(r-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4,
+      phase:Math.random()*6.28,
+      baseScale:.92+Math.random()*.18,
+      scale:1, amount:1, slot:0
+    });
+  }
+}
+// По одному InstancedMesh на тип
+const goldItems=[],instMeshes={},
+      geos={ingot:makeIngotGeo(),coins:makeCoinsGeo(),nugget:makeNuggetGeo(),ring:makeRingGeo(),crown:makeCrownGeo()};
+for(const t in geos){
+  const list=itemData.filter(d=>d.type===t);
+  const im=new THREE.InstancedMesh(geos[t], t==='crown'?crownMat:goldMat, list.length);
+  im.castShadow=true;
+  im.frustumCulled=false; // инстансы разбросаны по полю — не даём ошибочно отсекать
+  im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(im);
+  instMeshes[t]=im;
+  list.forEach((d,i)=>{d.slot=i;goldItems.push(d);});
+}
+const _dummy=new THREE.Object3D();
+let sparkAcc=0;
+function updateItems(dt){
+  for(const f of goldItems){
+    if(f.amount<1)f.amount=Math.min(1,f.amount+dt/9);
+    const target=(.32+.68*f.amount)*f.baseScale;
+    f.scale+=(target-f.scale)*Math.min(1,dt*5);
+    _dummy.position.set(f.x, SOIL_TOP+Math.sin(elapsed*2+f.phase)*.04, f.z);
+    _dummy.rotation.set(Math.sin(f.phase)*.12, elapsed*(.5+f.phase*.08)+f.phase, 0);
+    _dummy.scale.setScalar(f.scale);
+    _dummy.updateMatrix();
+    instMeshes[f.type].setMatrixAt(f.slot,_dummy.matrix);
+  }
+  for(const t in instMeshes)instMeshes[t].instanceMatrix.needsUpdate=true;
+  // редкие блики на золоте
+  sparkAcc+=dt;
+  if(sparkAcc>.25){
+    sparkAcc=0;
+    const f=goldItems[(Math.random()*goldItems.length)|0];
+    if(f.amount>.5)burst(f.x,SOIL_TOP+1,f.z,0xfff6c9,1,.3,.9,1,.5);
   }
 }
 
@@ -513,7 +538,6 @@ function indiaFlagTexture(){
   c.fillStyle='#FF9933';c.fillRect(0,0,512,107);
   c.fillStyle='#FFFFFF';c.fillRect(0,107,512,106);
   c.fillStyle='#138808';c.fillRect(0,213,512,107);
-  // Чакра
   const cx=256,cy=160,r=44;
   c.strokeStyle='#000080';c.lineWidth=6;
   c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();
@@ -528,13 +552,11 @@ function indiaFlagTexture(){
 {
   const g=new THREE.Group(); g.position.set(GATE.x,0,GATE.z);
   const stone=M(0xd8c49a);
-  // Столбы
   [-4.6,4.6].forEach(z=>{
     const p=new THREE.Mesh(new THREE.BoxGeometry(1.4,6,1.4),stone);
     p.position.set(0,3,z); p.castShadow=true; g.add(p);
     const cap=new THREE.Mesh(new THREE.BoxGeometry(1.8,.5,1.8),M(0xb8a276));
     cap.position.set(0,6.2,z); cap.castShadow=true; g.add(cap);
-    // Флагшток + флаг
     const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.6,6),M(0x8a8a8a));
     pole.position.set(0,7.6,z); g.add(pole);
     const fg=new THREE.PlaneGeometry(1.5,.95,10,6); fg.translate(.78,0,0);
@@ -543,27 +565,22 @@ function indiaFlagTexture(){
     g.add(fm);
     flags.push({mesh:fm,base:fg.attributes.position.array.slice()});
   });
-  // Балка с триколором
   const flagMat=new THREE.MeshStandardMaterial({map:indiaFlagTexture(),roughness:.8});
   const beam=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.8,11),
     [flagMat,flagMat,M(0xd8c49a),M(0xd8c49a),M(0xd8c49a),M(0xd8c49a)]);
   beam.position.set(0,7.1,0); beam.castShadow=true; g.add(beam);
-  // Табличка INDIA
   const cv=document.createElement('canvas');cv.width=256;cv.height=96;
   const c=cv.getContext('2d');
   c.fillStyle='#000080';c.fillRect(0,0,256,96);
   c.fillStyle='#ffd23f';c.font='900 56px Nunito, Arial';c.textAlign='center';c.textBaseline='middle';
   c.fillText('INDIA',128,50);
   const ptex=new THREE.CanvasTexture(cv);ptex.colorSpace=THREE.SRGBColorSpace;
-  const plate=new THREE.Mesh(new THREE.BoxGeometry(.12,.7,1.9),new THREE.MeshBasicMaterial({map:ptex}));
-  plate.position.set(-.88,7.1,0); plate.rotation.y=0;
-  // разворачиваем текстуру на боковую грань
-  plate.material=new THREE.MeshBasicMaterial({color:0x000080});
+  const plate=new THREE.Mesh(new THREE.BoxGeometry(.12,.7,1.9),new THREE.MeshBasicMaterial({color:0x000080}));
+  plate.position.set(-.88,7.1,0);
   const plateFace=new THREE.Mesh(new THREE.PlaneGeometry(1.8,.66),new THREE.MeshBasicMaterial({map:ptex}));
   plateFace.position.set(-.9,7.1,0); plateFace.rotation.y=-Math.PI/2;
   g.add(plate,plateFace);
   scene.add(g);
-  // Шлагбаум
   barrier=new THREE.Group();
   barrier.position.set(GATE.x,1.05,GATE.z+3.7);
   const arm=new THREE.Mesh(new THREE.BoxGeometry(.14,.14,3.8),M(0xffffff));
@@ -576,7 +593,6 @@ function indiaFlagTexture(){
   cw.position.z=.45; barrier.add(cw);
   scene.add(barrier);
 }
-// Пад обмена
 const padMat=new THREE.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:.4,side:THREE.DoubleSide});
 const pad=new THREE.Mesh(new THREE.CircleGeometry(2.8,6).rotateX(-Math.PI/2),padMat);
 pad.position.set(GATE.x,.04,GATE.z); scene.add(pad);
@@ -592,21 +608,16 @@ const bunters=[];
   const g=new THREE.Group(); g.position.set(34,0,-7.5);
   const cream=M(0xf0c987), burg=M(0x9c2f4b), teal=M(0x2a9d8f),
         winMat=new THREE.MeshStandardMaterial({color:0xffd77a,emissive:0xffb35c,emissiveIntensity:.7,roughness:.6});
-  // Ступени
-  [[6.5,.3,2.2,0,-.85],[5.5,.3,1.5,.62],[-1]].forEach(()=>{});
   [[7,.3,2.4,1.35],[5.8,.3,1.7,.85],[4.6,.3,1.1,.4]].forEach(([w,h,d,y])=>{
     const s=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(0xd8c49a));
-    s.position.set(0,y-1.35+0,4+d/2); s.position.y=y*.5+.15; s.receiveShadow=true; s.castShadow=true; g.add(s);
+    s.position.set(0,y*.5+.15,4+d/2); s.receiveShadow=true; s.castShadow=true; g.add(s);
   });
-  // Корпус
   const body=new THREE.Mesh(new THREE.BoxGeometry(11,5,8),cream);
   body.position.y=2.5; body.castShadow=true; body.receiveShadow=true; g.add(body);
-  // Цветной цоколь и карниз
   const plinth=new THREE.Mesh(new THREE.BoxGeometry(11.4,.7,8.4),teal);
   plinth.position.y=.35; g.add(plinth);
   const cornice=new THREE.Mesh(new THREE.BoxGeometry(11.6,.5,8.6),burg);
   cornice.position.y=5.2; g.add(cornice);
-  // Крыша + башенка с куполом
   const roof=new THREE.Mesh(new THREE.BoxGeometry(11.8,.6,8.8),M(0x7a3b52));
   roof.position.y=5.7; roof.castShadow=true; g.add(roof);
   const tower=new THREE.Mesh(new THREE.BoxGeometry(4,2.6,4),M(0xf5deb3));
@@ -617,7 +628,6 @@ const bunters=[];
   spike.position.y=12.3; g.add(spike);
   const star=new THREE.Mesh(new THREE.OctahedronGeometry(.3,0),goldMat);
   star.position.y=12.9; g.add(star);
-  // Боковые башни
   [-6.4,6.4].forEach(x=>{
     const t=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.7,6.4,8),teal);
     t.position.set(x,3.2,1.5); t.castShadow=true; g.add(t);
@@ -628,37 +638,30 @@ const bunters=[];
     const w=new THREE.Mesh(new THREE.BoxGeometry(.8,1.2,.1),winMat);
     w.position.set(x,3.4,3.05); g.add(w);
   });
-  // Окна-арки
   function archWin(x,y,z){
     const grp=new THREE.Group();
     const b=new THREE.Mesh(new THREE.BoxGeometry(.95,1.2,.1),winMat); grp.add(b);
     const t=new THREE.Mesh(new THREE.CylinderGeometry(.475,.475,.1,10,1,false,0,Math.PI),winMat);
-    t.rotation.set(Math.PI/2,0,0); t.rotation.y=Math.PI/2; t.position.y=.6;
-    t.rotation.set(0,0,0); t.rotation.x=Math.PI/2; t.rotation.z=Math.PI/2;
-    t.position.y=.6; grp.add(t);
+    t.rotation.x=Math.PI/2; t.rotation.z=Math.PI/2; t.position.y=.6; grp.add(t);
     const fr=new THREE.Mesh(new THREE.BoxGeometry(1.2,1.9,.06),burg); fr.position.z=-.03; grp.add(fr);
     grp.position.set(x,y,z); g.add(grp);
   }
   [-3.6,-1.2,1.2,3.6].forEach(x=>archWin(x,3,4.02));
   [-3.6,3.6].forEach(x=>archWin(x,3,-4.02));
-  // Дверь-арка
   const door=new THREE.Mesh(new THREE.BoxGeometry(1.8,2.6,.2),M(0x5b3a12));
   door.position.set(0,1.5,4.05); g.add(door);
   const dfr=new THREE.Mesh(new THREE.BoxGeometry(2.3,3.1,.12),goldMat);
   dfr.position.set(0,1.6,4.0); g.add(dfr);
-  // Гирлянда флажков
   const cols=[0xff4d6d,0x4dd0e1,0xffd23f,0x9b59b6,0xff9a3d];
   for(let i=0;i<=12;i++){
     const t=i/12;
     const x=THREE.MathUtils.lerp(-6.4,6.4,t);
-    const y=7.4-Math.sin(t*Math.PI)*1.3+9.7-7.4; // провисание между куполом и башнями
     const yy=THREE.MathUtils.lerp(9.2,7.4,Math.abs(t*2-1))-Math.sin(t*Math.PI)*.8;
     const fl=new THREE.Mesh(new THREE.PlaneGeometry(.34,.44),
       new THREE.MeshBasicMaterial({color:cols[i%cols.length],side:THREE.DoubleSide}));
     fl.position.set(x,yy-.25,2.2); fl.rotation.x=.2; g.add(fl);
     bunters.push(fl);
   }
-  // Золотые шарики по карнизу
   for(let i=0;i<9;i++){
     const b=new THREE.Mesh(new THREE.SphereGeometry(.14,6,5),goldMat);
     b.position.set(-4.4+i*1.1,5.6,4.35); g.add(b);
@@ -713,7 +716,6 @@ function buildBlockChar(){
 }
 buildBlockChar();
 
-// Загрузка male.glb из папки files + покраска в цвет кожи
 const SKIN_HEX=0xd9a066;
 new GLTFLoader().load('files/male.glb',
   (gltf)=>{
@@ -857,30 +859,12 @@ function doHarvest(){
     const g=Math.min(Math.max(1,Math.round(base*gatherMult)),capacity-pollen);
     pollen+=g;gained+=g;
     f.amount=Math.max(0,f.amount-.22);
-    burst(f.x,SOIL_TOP+.8*f.group.scale.x,f.z,ITEMS[f.type].c);
+    burst(f.x,SOIL_TOP+.8*(f.scale||1),f.z,ITEMS[f.type].c);
   }
   if(gained>0){
     floatText(_camT.copy(aimPoint).add(new THREE.Vector3(0,1.5,0)),'+'+gained,'pollen');
     sfx('pop');
     markDirty();
-  }
-}
-let sparkAcc=0;
-function updateItems(dt){
-  for(const f of goldItems){
-    if(f.amount<1)f.amount=Math.min(1,f.amount+dt/9);
-    const target=(.32+.68*f.amount)*f.baseScale;
-    const s=f.group.scale.x+(target-f.group.scale.x)*Math.min(1,dt*5);
-    f.group.scale.setScalar(s);
-    f.mesh.rotation.y=elapsed*(.5+f.phase*.08)+f.phase;
-    f.mesh.position.y=Math.sin(elapsed*2+f.phase)*.05+ (f.mesh.position.y>1?0:0);
-  }
-  // случайные блики на золоте
-  sparkAcc+=dt;
-  if(sparkAcc>.22){
-    sparkAcc=0;
-    const f=goldItems[(Math.random()*goldItems.length)|0];
-    if(f.amount>.5)burst(f.x,SOIL_TOP+1,f.z,0xfff6c9,1,.3,.9,1,.5);
   }
 }
 
@@ -908,9 +892,8 @@ function updateConvert(dt){
   }
   padMat.opacity=converting?.55+Math.sin(elapsed*6)*.2:.35;
   padRing.rotation.y+=dt*(converting?1.2:.2);
-  // шлагбаум
   const open=(near&&pollen>.01)?1.25:0;
-  barrier.rotation.x+= (open-barrier.rotation.x)*Math.min(1,dt*4);
+  barrier.rotation.x+=(open-barrier.rotation.x)*Math.min(1,dt*4);
 }
 function checkBeeReward(){
   while(rewardIdx<BEE_REWARDS.length&&gold>=BEE_REWARDS[rewardIdx]){
@@ -965,7 +948,7 @@ class Bumble{
   }
   update(dt){
     const g=this.group,t=elapsed;
-    if(this.mode==='home'){ // шмели у особняка
+    if(this.mode==='home'){
       const a=t*.45+this.phase,r=5+Math.sin(t*.7+this.phase)*1.5;
       _bt.set(34+Math.cos(a)*r,3.5+Math.sin(t*1.1+this.phase),-4+Math.sin(a)*r);
       g.position.lerp(_bt,1-Math.exp(-dt*1.5));
@@ -1290,14 +1273,12 @@ function animate(){
   const dt=Math.min(clock.getDelta(),.05);
   elapsed+=dt;
 
-  // фоновая жизнь
   for(const c of clouds){c.position.x+=c.userData.v*dt;if(c.position.x>105)c.position.x=-105;}
   updateButterflies(dt);
   updateItems(dt);
   updateParticles(dt);
   updateFloats(dt);
   for(const b of homeBumbles)b.update(dt);
-  // флаги Индии
   for(const f of flags){
     const pos=f.mesh.geometry.attributes.position;
     for(let i=0;i<pos.count;i++){
@@ -1318,7 +1299,6 @@ function animate(){
   }else{
     for(const b of playerBumbles)b.update(dt);
   }
-  // автосохранение
   saveTimer+=dt;
   if(saveDirty&&saveTimer>2){saveTimer=0;saveDirty=false;saveGame();}
 
