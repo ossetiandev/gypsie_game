@@ -46,6 +46,15 @@
   .chip.bump{animation:bump .35s ease-out}
   @keyframes bump{40%{transform:scale(1.2) rotate(-3deg)}}
 
+  #questPanel{position:absolute;top:70px;left:14px;width:250px;background:rgba(46,26,6,.85);
+    border:3px solid #b28dff;border-radius:14px;padding:8px 12px 10px;display:none;
+    box-shadow:0 5px 0 rgba(0,0,0,.22)}
+  #questPanel.show{display:block}
+  #questName{font-weight:900;font-size:13px;color:#e6d6ff;margin-bottom:5px}
+  #questBar{height:10px;border-radius:99px;background:#241302;border:2px solid #5b3a12;overflow:hidden}
+  #questFill{height:100%;width:0%;background:linear-gradient(90deg,#b28dff,#7fd4ff);border-radius:99px;transition:width .2s}
+  #questNum{font-family:'Titan One';font-size:13px;color:#fff;margin-top:4px;text-align:right}
+
   #shopBtn{position:absolute;top:70px;right:14px;pointer-events:auto;cursor:pointer;
     font-family:'Titan One';font-size:15px;color:#5b3a12;background:linear-gradient(180deg,#fff3c4,#ffd23f);
     border:3px solid #5b3a12;border-radius:12px;padding:7px 16px;box-shadow:0 4px 0 #8a5a10;
@@ -91,7 +100,8 @@
   body.playing #startScreen{opacity:0;pointer-events:none}
   body.paused #pauseScreen{display:flex}
   body.shop #shopScreen{display:flex}
-  #pauseScreen,#shopScreen{background:rgba(20,12,2,.55);backdrop-filter:blur(2px)}
+  body.talk #talkScreen{display:flex}
+  #pauseScreen,#shopScreen,#talkScreen{background:rgba(20,12,2,.55);backdrop-filter:blur(2px)}
 
   .panel{position:relative;text-align:center;max-width:92vw;
     background:linear-gradient(180deg,#ffe082,#ffc61a);border:6px solid #5b3a12;border-radius:26px;
@@ -118,6 +128,8 @@
     padding:12px 46px;box-shadow:0 8px 0 #8a5a10;transition:transform .12s,box-shadow .12s}
   .btn:hover{transform:translateY(-3px);box-shadow:0 11px 0 #8a5a10}
   .btn:active{transform:translateY(3px);box-shadow:0 3px 0 #8a5a10}
+  .btn.small{font-size:18px;padding:10px 26px}
+  .btn.alt{background:linear-gradient(180deg,#e8e0d0,#c9bfa8)}
   .foot{margin-top:16px;font-size:12px;font-weight:800;color:#7a4a12;opacity:.9}
   .foot a{color:#a33d12;cursor:pointer;text-decoration:underline}
 
@@ -142,6 +154,14 @@
   .buyBtn:hover:not(:disabled){transform:translateY(-2px)}
   .buyBtn:disabled{opacity:.45;cursor:not-allowed}
 
+  /* Диалог Газипура */
+  #talkScreen .panel{width:min(520px,94vw);padding:28px 34px 30px}
+  .npcFace{font-size:56px;line-height:1}
+  #talkScreen h2{font-family:'Titan One';font-size:32px;color:#5b3a12;margin:4px 0 10px}
+  #talkText{font-weight:800;color:#4a2c08;font-size:16px;line-height:1.5;margin-bottom:18px;min-height:66px}
+  #talkText b{color:#8a4a00}
+  .talkBtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
   #resetBtn{cursor:pointer}
 </style>
 </head>
@@ -153,6 +173,11 @@
   <div class="chip" id="goldChip">🪙 <span id="goldNum">0</span></div>
   <div class="chip" id="beeChip">🐝 <span id="beeNum">×2</span></div>
   <button id="shopBtn">🛒 ЛАВКА [E]</button>
+  <div id="questPanel">
+    <div id="questName">📜 Квест</div>
+    <div id="questBar"><div id="questFill"></div></div>
+    <div id="questNum">0/0</div>
+  </div>
   <div id="packPanel">
     <div id="packTop">
       <span id="packLabel">РЮКЗАК · САМОРОДКИ</span>
@@ -172,13 +197,13 @@
     <div class="hex h1"></div><div class="hex h2"></div>
     <span class="titleBee">💰</span>
     <h1>GYPSIE<small>GAME</small></h1>
-    <div class="tagline">Собирай золото · Собери рой из 6 шмелей · Открой Золотой луг</div>
+    <div class="tagline">Три локации · Квесты Газипура · Собери рой из 10 шмелей</div>
     <div class="ctrls">
       <span class="key"><b>WASD</b> — движение</span>
       <span class="key"><b>SHIFT</b> — бег</span>
       <span class="key"><b>SPACE</b> — прыжок</span>
       <span class="key"><b>ЛКМ</b> — сбор золота</span>
-      <span class="key"><b>E</b> — лавка рядом</span>
+      <span class="key"><b>E</b> — лавка / Газипур</span>
       <span class="key"><b>ESC</b> — пауза</span>
     </div>
     <button class="btn" id="playBtn">▶ ИГРАТЬ</button>
@@ -203,6 +228,18 @@
   </div>
 </div>
 
+<div class="screen" id="talkScreen">
+  <div class="panel">
+    <div class="npcFace">🧔</div>
+    <h2>Газипур</h2>
+    <p id="talkText"></p>
+    <div class="talkBtns">
+      <button class="btn small" id="talkOk">Взять квест</button>
+      <button class="btn small alt" id="talkBye">Позже</button>
+    </div>
+  </div>
+</div>
+
 <script type="importmap">
 {
   "imports": {
@@ -223,35 +260,37 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
    0. КОНСТАНТЫ И СОСТОЯНИЕ
 ================================================================ */
 const SKEY='gypsieGameSaveV2';
-let capacity=100, speedBonus=0, gatherMult=1, harvestInterval=.24, beeTimerMult=1;
-let pollen=0, gold=0;
-let items={bee:2,pack:0,boots:0,net:0,stick:0,tea:0,teeth:0,gate2:false};
+let capacity=100,speedBonus=0,gatherMult=1,harvestInterval=.24,beeTimerMult=1;
+let pollen=0,gold=0;
+let items={bee:2,pack:0,boots:0,net:0,stick:0,tea:0,teeth:0,gate2:false,gate3:false};
+let quest=null,lastQuest=null; // активный квест {id,progress}
 let rewardIdx=0;
-let converting=false, sessionGold=0;
-let elapsed=0, fullWarned=false, playerMode='block';
-let gate2Open=false, gateAnim=false;
-const keys={}, mouse={down:false};
+let converting=false,sessionGold=0;
+let elapsed=0,fullWarned=false,playerMode='block';
+const keys={},mouse={down:false};
 const harvest={active:false,timer:0};
-const aimPoint=new THREE.Vector3(); let hasAim=false, nearField=false, nearGate2=false, nearShopName=null;
+const aimPoint=new THREE.Vector3();
+let hasAim=false,nearField=false,nearGateTxt=null,nearShopName=null,nearGazipur=false;
 
-const FIELD ={cx:-11,cz:0,  n:15,sp:2.2};         // Золотые пески
-const FIELD2={cx:-10,cz:-56,n:12,sp:2.2};         // Золотой луг (цветы)
-const GATE ={x:20,z:1.6,r:3.0};                   // Индийские ворота
-const GATE2={x:14,z:-22};                         // Заблокированный проход
-const STALL1={x:24.5,z:5.5};                      // Индийский базар
-const STALL2={x:17,z:-50};                        // Цыганский шатёр
+const FIELD ={cx:-11,cz:0,  n:15,sp:2.2};   // Золотые пески (Индия)
+const FIELD2={cx:-10,cz:-56,n:12,sp:2.2};   // Золотой луг (цыганская)
+const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};  // Поле Лахор (Пакистан)
+const GATE ={x:20,z:1.6,r:3.0};
+const STALL1={x:24.5,z:5.5};
+const STALL2={x:17,z:-50};
+const GAZI ={x:8.5,z:-116.5};
 const SOIL_TOP=0.15;
 
 /* ================================================================
-   1. СОХРАНЕНИЕ (localStorage)
+   1. СОХРАНЕНИЕ
 ================================================================ */
 const BEE_REWARDS=[40,120,300,600,1000,1600];
-let saveDirty=false, saveTimer=0;
+let saveDirty=false,saveTimer=0;
 function saveGame(){
   try{
-    localStorage.setItem(SKEY,JSON.stringify({v:2,gold,pollen,items}));
+    localStorage.setItem(SKEY,JSON.stringify({v:2,gold,pollen,items,quest,lastQuest}));
     const c=document.getElementById('saveChip');
-    c.classList.add('show'); setTimeout(()=>c.classList.remove('show'),1100);
+    c.classList.add('show');setTimeout(()=>c.classList.remove('show'),1100);
   }catch(e){}
 }
 function loadGame(){
@@ -261,7 +300,7 @@ function loadGame(){
       gold=Math.max(0,+d.gold||0);
       pollen=Math.min(Math.max(0,+d.pollen||0),100);
       if(d.items){
-        items.bee  =Math.min(8,Math.max(1,d.items.bee|0||2));
+        items.bee  =Math.min(12,Math.max(1,d.items.bee|0||2));
         items.pack =Math.min(3,Math.max(0,d.items.pack|0));
         items.boots=Math.min(2,Math.max(0,d.items.boots|0));
         items.net  =Math.min(2,Math.max(0,d.items.net|0));
@@ -269,10 +308,13 @@ function loadGame(){
         items.tea  =Math.min(2,Math.max(0,d.items.tea|0));
         items.teeth=Math.min(3,Math.max(0,d.items.teeth|0));
         items.gate2=!!d.items.gate2;
+        items.gate3=!!d.items.gate3;
       }
+      lastQuest=d.lastQuest||null;
+      if(d.quest&&QUESTS.find(q=>q.id===d.quest.id&&!q.locked))
+        quest={id:d.quest.id,progress:Math.max(0,+d.quest.progress||0)};
     }
   }catch(e){}
-  gate2Open=items.gate2;
   applyItems();
   while(rewardIdx<BEE_REWARDS.length&&gold>=BEE_REWARDS[rewardIdx])rewardIdx++;
 }
@@ -284,13 +326,42 @@ function applyItems(){
   beeTimerMult=1-.25*items.tea;
 }
 function markDirty(){saveDirty=true;}
-loadGame();
 document.getElementById('resetBtn').addEventListener('click',()=>{
   if(confirm('Точно сбросить весь прогресс?')){localStorage.removeItem(SKEY);location.reload();}
 });
 
 /* ================================================================
-   2. СЦЕНА / СВЕТ
+   2. КВЕСТЫ ГАЗИПУРА
+================================================================ */
+const QUESTS=[
+  {id:'q1',name:'Индийская операция',zone:'india',need:400,reward:600,
+   desc:'Собери <b>400 самородков</b> в индийской локации (Золотые пески).'},
+  {id:'q2',name:'Цыганское ограбление',zone:'gypsy',need:600,reward:950,
+   desc:'Накопай <b>600 самородков</b> в цыганской локации (Золотой луг).'},
+  {id:'q3',name:'Сомалийский разбой',zone:'somali',need:1200,reward:2200,locked:true,
+   desc:'Накопай <b>1200 самородков</b> на сомалийском поле. (скоро)'},
+  {id:'q4',name:'Азиатский микс',zones:['india','gypsy','paki'],need:200,reward:350,
+   desc:'Собери <b>200 самородков</b> суммарно: пакистанское, индийское и цыганское поля.'},
+  {id:'q5',name:'Пакистанская миссия',zone:'paki',need:800,reward:1400,
+   desc:'Накопай <b>800 самородков</b> на поле Лахор.'},
+];
+const qById=id=>QUESTS.find(q=>q.id===id);
+function pickQuest(){
+  const pool=QUESTS.filter(q=>!q.locked&&q.id!==lastQuest);
+  const list=pool.length?pool:QUESTS.filter(q=>!q.locked);
+  return list[(Math.random()*list.length)|0];
+}
+function questGain(zone,amt){
+  if(!quest)return;
+  const def=qById(quest.id);
+  if(def.zone===zone||(def.zones&&def.zones.includes(zone))){
+    quest.progress+=amt;markDirty();
+  }
+}
+const fmt=n=>Number.isInteger(n)?n:String(Math.round(n*10)/10);
+
+/* ================================================================
+   3. СЦЕНА / СВЕТ
 ================================================================ */
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x8fd9ff);
@@ -324,21 +395,29 @@ function canvasTexture(w,h,draw){
   const t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;
   return {tex:t,cv,ctx:cv.getContext('2d')};
 }
+function starPath(c,cx,cy,r){
+  c.beginPath();
+  for(let i=0;i<10;i++){
+    const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;
+    c.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);
+  }
+  c.closePath();
+}
 
 /* ================================================================
-   3. МИР: расширенная карта, тропинки, декор
+   4. МИР: большая карта (3 зоны)
 ================================================================ */
-const ground=new THREE.Mesh(new THREE.BoxGeometry(92,3,140),
+const ground=new THREE.Mesh(new THREE.BoxGeometry(92,3,206),
   [M(0x8a5a2b),M(0x8a5a2b),M(0x67bd45),M(0x6a4321),M(0x8a5a2b),M(0x8a5a2b)]);
-ground.position.set(0,-1.5,-25);ground.receiveShadow=true;scene.add(ground);
+ground.position.set(0,-1.5,-58);ground.receiveShadow=true;scene.add(ground);
 
-// Почва: пески и луг
 function soilPatch(w,l,x,z,c){
   const s=new THREE.Mesh(new THREE.BoxGeometry(w,SOIL_TOP,l),M(c));
   s.position.set(x,SOIL_TOP/2,z);s.receiveShadow=true;scene.add(s);
 }
 soilPatch(36,36,FIELD.cx,FIELD.cz,0xd9c07a);
 soilPatch(30,30,FIELD2.cx,FIELD2.cz,0xcbb26a);
+soilPatch(30,30,FIELD3.cx,FIELD3.cz,0xc9b06a);
 
 function pathBox(w,l,x,z,ry=0){
   const p=new THREE.Mesh(new THREE.BoxGeometry(w,.12,l),M(0xe6c687));
@@ -347,21 +426,26 @@ function pathBox(w,l,x,z,ry=0){
 pathBox(13.5,3.2,11.75,1.6);
 pathBox(8.5,3.2,25.75,1.6);
 pathBox(3.2,6,31.6,-.9,-.65);
-pathBox(3.2,25,14,6.5);        // к проходу
-pathBox(3.2,26,14,-38);        // через проход на луг
-pathBox(3.2,30,-1,-44,-.55);   // луг → поле цветов
-pathBox(3.2,9,14.8,-48,-1.25); // луг → шатёр
+pathBox(3.2,25,14,6.5);
+pathBox(3.2,26,14,-38);
+pathBox(3.2,30,-1,-44,-.55);
+pathBox(3.2,9,14.8,-48,-1.25);
+pathBox(3.2,34,14,-70);      // луг → ворота 2
+pathBox(3.2,12,14,-89);      // через ворота 2
+pathBox(3.2,28,14,-109);     // лес
+pathBox(18,3.2,4,-112);      // лес → Лахор
 
 // Пятна травы
 {
   const g=new THREE.CircleGeometry(1,6).rotateX(-Math.PI/2);
-  const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),80);
+  const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),110);
   const d=new THREE.Object3D(),col=new THREE.Color();
   let i=0,tries=0;
-  while(i<80&&tries++<900){
-    const x=Math.random()*86-43,z=Math.random()*136-92;
+  while(i<110&&tries++<1400){
+    const x=Math.random()*86-43,z=Math.random()*200-155;
     if(Math.abs(x-FIELD.cx)<18.5&&Math.abs(z-FIELD.cz)<18.5)continue;
     if(Math.abs(x-FIELD2.cx)<16&&Math.abs(z-FIELD2.cz)<16)continue;
+    if(Math.abs(x-FIELD3.cx)<16&&Math.abs(z-FIELD3.cz)<16)continue;
     d.position.set(x,.012,z);d.rotation.y=Math.random()*Math.PI;
     const s=.8+Math.random()*1.8;d.scale.set(s,1,s);d.updateMatrix();
     im.setMatrixAt(i,d.matrix);
@@ -373,16 +457,17 @@ pathBox(3.2,9,14.8,-48,-1.25); // луг → шатёр
 // Пучки травы
 {
   const g=new THREE.ConeGeometry(.13,.42,4);
-  const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),220);
+  const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),300);
   const d=new THREE.Object3D(),col=new THREE.Color();
   let i=0,tries=0;
-  while(i<220&&tries++<1400){
-    const x=Math.random()*86-43,z=Math.random()*136-92;
+  while(i<300&&tries++<2200){
+    const x=Math.random()*86-43,z=Math.random()*200-155;
     if(Math.abs(x-FIELD.cx)<18.5&&Math.abs(z-FIELD.cz)<18.5)continue;
     if(Math.abs(x-FIELD2.cx)<16&&Math.abs(z-FIELD2.cz)<16)continue;
+    if(Math.abs(x-FIELD3.cx)<16&&Math.abs(z-FIELD3.cz)<16)continue;
     if(x>16&&z>-14&&z<12)continue;
-    if(Math.abs(x-14)<3&&z>-46&&z<10)continue;
-    if(Math.abs(z+22)<2.2)continue;
+    if(Math.abs(x-14)<3&&z>-125&&z<10)continue;
+    if(Math.abs(z+22)<2.2||Math.abs(z+95)<2.2)continue;
     d.position.set(x,.2,z);d.rotation.y=Math.random()*Math.PI;d.updateMatrix();
     im.setMatrixAt(i,d.matrix);
     im.setColorAt(i,col.set(Math.random()<.5?0x3f9e3f:0x5fc94f));
@@ -390,22 +475,22 @@ pathBox(3.2,9,14.8,-48,-1.25); // луг → шатёр
   }
   scene.add(im);
 }
-// Забор по новому периметру
+// Забор по периметру
 {
   const g=new THREE.BoxGeometry(.35,1.3,.35);
   const pos=[];
-  for(let x=-44.5;x<=44.5;x+=5.5)pos.push([x,-94.5],[x,44.5]);
-  for(let z=-94.5;z<=44.5;z+=5.5)pos.push([-44.5,z],[44.5,z]);
+  for(let x=-44.5;x<=44.5;x+=5.5)pos.push([x,-159.5],[x,44.5]);
+  for(let z=-159.5;z<=44.5;z+=5.5)pos.push([-44.5,z],[44.5,z]);
   const im=new THREE.InstancedMesh(g,M(0x9a6a33),pos.length);
   const d=new THREE.Object3D();
   pos.forEach((p,i)=>{d.position.set(p[0],.65,p[1]);d.updateMatrix();im.setMatrixAt(i,d.matrix);});
   im.castShadow=true;scene.add(im);
   const railNS=new THREE.BoxGeometry(89,.14,.14);
-  [-94.5,44.5].forEach(z=>{[.5,.95].forEach(y=>{
+  [-159.5,44.5].forEach(z=>{[.5,.95].forEach(y=>{
     const r=new THREE.Mesh(railNS,M(0x9a6a33));r.position.set(0,y,z);r.castShadow=true;scene.add(r);});});
-  const railEW=new THREE.BoxGeometry(.14,.14,139);
+  const railEW=new THREE.BoxGeometry(.14,.14,204);
   [-44.5,44.5].forEach(x=>{[.5,.95].forEach(y=>{
-    const r=new THREE.Mesh(railEW,M(0x9a6a33));r.position.set(x,y,-25);r.castShadow=true;scene.add(r);});});
+    const r=new THREE.Mesh(railEW,M(0x9a6a33));r.position.set(x,y,-57.5);r.castShadow=true;scene.add(r);});});
 }
 function tree(x,z,s){
   const g=new THREE.Group();
@@ -418,8 +503,38 @@ function tree(x,z,s){
   g.position.set(x,0,z);g.scale.setScalar(s);scene.add(g);
 }
 tree(-38,-30,1.2);tree(-34,28,1);tree(10,-36,.9);tree(36,-32,1);tree(38,30,1.15);tree(-40,8,1.1);
-tree(-38,-70,1.3);tree(36,-80,1.2);tree(-36,-45,1);tree(30,-62,1.1);tree(6,-88,1.25);
-[[-2,-26],[14,24],[-30,6],[8,30],[-18,-30],[30,-75],[-35,-80],[-25,-50]].forEach(([x,z])=>{
+tree(-38,-70,1.3);tree(36,-80,1.2);tree(-36,-45,1);tree(30,-62,1.1);tree(6,-88,1.1);
+// Пакистанский лес: ели (инстансы)
+{
+  const spots=[];let tries=0;
+  while(spots.length<46&&tries++<1000){
+    const x=Math.random()*84-42,z=-157+Math.random()*59;
+    if(Math.abs(x-FIELD3.cx)<16&&Math.abs(z-FIELD3.cz)<16)continue;
+    if(Math.abs(x-14)<4.5)continue;
+    if((x-GAZI.x)**2+(z-GAZI.z)**2<20)continue;
+    spots.push([x,z,.8+Math.random()*.7]);
+  }
+  const trunkG=new THREE.BoxGeometry(.5,1.6,.5);
+  const coneG=new THREE.ConeGeometry(1,1.8,6);
+  const trunkIM=new THREE.InstancedMesh(trunkG,M(0x6a4321),spots.length);
+  const coneIM=new THREE.InstancedMesh(coneG,
+    new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),spots.length*3);
+  const d=new THREE.Object3D(),col=new THREE.Color();
+  spots.forEach(([x,z,s],i)=>{
+    d.position.set(x,.8*s,z);d.scale.setScalar(s);d.rotation.y=Math.random()*3;d.updateMatrix();
+    trunkIM.setMatrixAt(i,d.matrix);
+    for(let j=0;j<3;j++){
+      d.position.set(x,(2+j*1.0)*s,z);
+      d.scale.setScalar(s*(1.3-j*.32));
+      d.rotation.y=Math.random()*3;d.updateMatrix();
+      coneIM.setMatrixAt(i*3+j,d.matrix);
+      coneIM.setColorAt(i*3+j,col.set(j===2?0x2f7a4a:(Math.random()<.5?0x256b3f:0x2f8a4f)));
+    }
+  });
+  trunkIM.castShadow=true;coneIM.castShadow=true;
+  scene.add(trunkIM,coneIM);
+}
+[[-2,-26],[14,24],[-30,6],[8,30],[-18,-30],[30,-75],[-35,-80],[-25,-50],[-38,-130],[34,-140]].forEach(([x,z])=>{
   const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.8+Math.random()*.6,0),M(0x9aa3ad));
   r.scale.y=.6;r.position.set(x,.25,z);r.rotation.y=Math.random()*3;r.castShadow=true;scene.add(r);
 });
@@ -443,9 +558,11 @@ makeSign('✨ ЗОЛОТЫЕ ПЕСКИ',-1,19.5,Math.PI);
 makeSign('ИНДИЙСКИЕ ВОРОТА →',12,3.6,Math.PI/2);
 makeSign('⬆ ЗОЛОТОЙ ЛУГ',18,-19,0);
 makeSign('✨ ЗОЛОТОЙ ЛУГ',-4,-42,.5);
+makeSign('⬆ ПАКИСТАНСКИЙ ЛЕС',18,-92,0);
+makeSign('ПОЛЕ ЛАХОР ←',12,-112,Math.PI/2);
 
 const clouds=[];
-for(let i=0;i<7;i++){
+for(let i=0;i<8;i++){
   const g=new THREE.Group();
   const m=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true});
   for(let j=0;j<4;j++){
@@ -453,106 +570,162 @@ for(let i=0;i<7;i++){
     b.position.set(j*1.7-2.5+Math.random(),Math.random()*.5,Math.random()*1.5-.7);
     g.add(b);
   }
-  g.position.set(Math.random()*180-90,25+Math.random()*9,Math.random()*180-110);
+  g.position.set(Math.random()*180-90,25+Math.random()*9,Math.random()*240-170);
   g.userData.v=.8+Math.random()*1.2;
   clouds.push(g);scene.add(g);
 }
 
 /* ================================================================
-   4. ИЗГОРОДЬ + АРКА + БАРРИКАДА (вторая локация)
+   5. ВОРОТА-ЗАМКИ (6 и 10 шмелей)
 ================================================================ */
-{
+const flags=[];
+function indiaFlagTexture(){
+  const {tex}=canvasTexture(512,320,c=>{
+    c.fillStyle='#FF9933';c.fillRect(0,0,512,107);
+    c.fillStyle='#FFFFFF';c.fillRect(0,107,512,106);
+    c.fillStyle='#138808';c.fillRect(0,213,512,107);
+    const cx=256,cy=160,r=44;
+    c.strokeStyle='#000080';c.lineWidth=6;
+    c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();
+    for(let i=0;i<24;i++){
+      const a=i/24*Math.PI*2;
+      c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);c.stroke();
+    }
+    c.fillStyle='#000080';c.beginPath();c.arc(cx,cy,7,0,Math.PI*2);c.fill();
+  });
+  return tex;
+}
+function pakFlagTexture(){
+  const {tex}=canvasTexture(512,320,c=>{
+    c.fillStyle='#01411C';c.fillRect(0,0,512,320);
+    c.fillStyle='#fff';c.fillRect(0,0,128,320);
+    const cx=305,cy=160;
+    c.fillStyle='#fff';c.beginPath();c.arc(cx,cy,72,0,Math.PI*2);c.fill();
+    c.fillStyle='#01411C';c.beginPath();c.arc(cx+26,cy-14,64,0,Math.PI*2);c.fill();
+    starPath(c,cx+42,cy-38,22);c.fillStyle='#fff';c.fill();
+  });
+  return tex;
+}
+const gates=[];
+function makeGate(x,z,req,title,flagTex,initialOpen){
+  const gt={x,z,req,title,open:initialOpen,anim:false};
+  // изгородь
   const g=new THREE.BoxGeometry(2,1.7,1.5);
   const xs=[];
-  for(let x=-45;x<=9.5;x+=2.1)xs.push(x);
-  for(let x=18.5;x<=45;x+=2.1)xs.push(x);
+  for(let i=-45;i<=9.5;i+=2.1)xs.push(i);
+  for(let i=18.5;i<=45;i+=2.1)xs.push(i);
   const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),xs.length);
   const d=new THREE.Object3D(),col=new THREE.Color();
-  xs.forEach((x,i)=>{
-    d.position.set(x,.85,GATE2.z);
-    d.scale.set(1,.9+Math.random()*.3,1);
-    d.rotation.y=(Math.random()-.5)*.12;
-    d.updateMatrix();im.setMatrixAt(i,d.matrix);
+  xs.forEach((xx,i)=>{
+    d.position.set(xx,.85,z);d.scale.set(1,.9+Math.random()*.3,1);
+    d.rotation.y=(Math.random()-.5)*.12;d.updateMatrix();
+    im.setMatrixAt(i,d.matrix);
     im.setColorAt(i,col.set(Math.random()<.5?0x3f8f3a:0x54a94a));
   });
   im.castShadow=true;scene.add(im);
-}
-// Арка прохода
-const arch=new THREE.Group();arch.position.set(GATE2.x,0,GATE2.z);
-[-3.4,3.4].forEach(x=>{
-  const p=new THREE.Mesh(new THREE.BoxGeometry(.6,4.4,.6),M(0x8a5a2b));
-  p.position.set(x,2.2,0);p.castShadow=true;arch.add(p);
-});
-const beam=new THREE.Mesh(new THREE.BoxGeometry(7.8,.7,.7),M(0x6a4321));
-beam.position.y=4.4;beam.castShadow=true;arch.add(beam);
-// Динамическая табличка прогресса
-const gateSign=canvasTexture(512,256,()=>{});
-function updateGateSign(){
-  const c=gateSign.ctx;
-  c.fillStyle='#6a4321';c.fillRect(0,0,512,256);
-  c.strokeStyle='#3f2712';c.lineWidth=16;c.strokeRect(8,8,496,240);
-  c.textAlign='center';
-  if(gate2Open){
-    c.fillStyle='#ffd23f';c.font='900 62px Nunito,Arial';c.fillText('Проход открыт!',256,105);
-    c.font='900 46px Nunito,Arial';c.fillText('✨ Золотой луг ✨',256,180);
-  }else{
-    c.fillStyle='#ffe9b3';c.font='900 46px Nunito,Arial';c.fillText('ВТОРАЯ ЛОКАЦИЯ',256,72);
-    c.fillStyle=items.bee>=6?'#9dff8a':'#ffd23f';
-    c.font='900 58px Nunito,Arial';c.fillText(`Шмели: ${items.bee} / 6`,256,148);
-    c.fillStyle='#ffe9b3';c.font='800 32px Nunito,Arial';c.fillText('соберите рой, чтобы открыть',256,212);
+  // арка
+  const arch=new THREE.Group();arch.position.set(x,0,z);
+  [-3.4,3.4].forEach(px=>{
+    const p=new THREE.Mesh(new THREE.BoxGeometry(.6,4.4,.6),M(0x8a5a2b));
+    p.position.set(px,2.2,0);p.castShadow=true;arch.add(p);
+  });
+  const beam=new THREE.Mesh(new THREE.BoxGeometry(7.8,.7,.7),M(0x6a4321));
+  beam.position.y=4.4;beam.castShadow=true;arch.add(beam);
+  if(flagTex){
+    [-3.4,3.4].forEach(px=>{
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.2,6),M(0x8a8a8a));
+      pole.position.set(px,5.5,0);arch.add(pole);
+      const fg=new THREE.PlaneGeometry(1.3,.8,8,5);fg.translate(.68,0,0);
+      const fm=new THREE.Mesh(fg,new THREE.MeshBasicMaterial({map:flagTex,side:THREE.DoubleSide}));
+      fm.position.set(px,6.2,0);arch.add(fm);
+      flags.push({mesh:fm,base:fg.attributes.position.array.slice()});
+    });
   }
-  gateSign.tex.needsUpdate=true;
-}
-const signMat=new THREE.MeshBasicMaterial({map:gateSign.tex,side:THREE.DoubleSide});
-const gs1=new THREE.Mesh(new THREE.PlaneGeometry(3.6,1.8),signMat);
-gs1.position.set(0,3.2,.42);arch.add(gs1);
-scene.add(arch);
-updateGateSign();
-
-// Баррикада
-const blockade=new THREE.Group();blockade.position.set(GATE2.x,0,GATE2.z);
-function barricadeFrame(zOff){
-  const f=new THREE.Group();f.position.z=zOff;
-  const wood=M(0x8a5a2b);
-  [-1.4,1.4].forEach(x=>{
-    const p=new THREE.Mesh(new THREE.BoxGeometry(.22,1.6,.22),wood);
-    p.position.set(x,.8,0);p.castShadow=true;f.add(p);
+  // динамическая табличка
+  gt.sign=canvasTexture(512,256,()=>{});
+  const sm=new THREE.Mesh(new THREE.PlaneGeometry(3.6,1.8),
+    new THREE.MeshBasicMaterial({map:gt.sign.tex,side:THREE.DoubleSide}));
+  sm.position.set(0,3.2,.42);arch.add(sm);
+  scene.add(arch);
+  gt.updateSign=()=>{
+    const c=gt.sign.ctx;
+    c.fillStyle='#6a4321';c.fillRect(0,0,512,256);
+    c.strokeStyle='#3f2712';c.lineWidth=16;c.strokeRect(8,8,496,240);
+    c.textAlign='center';
+    if(gt.open){
+      c.fillStyle='#ffd23f';c.font='900 62px Nunito,Arial';c.fillText('Проход открыт!',256,105);
+      c.font='900 42px Nunito,Arial';c.fillText(gt.title,256,180);
+    }else{
+      c.fillStyle='#ffe9b3';c.font='900 44px Nunito,Arial';c.fillText(gt.title,256,70);
+      c.fillStyle=items.bee>=gt.req?'#9dff8a':'#ffd23f';
+      c.font='900 58px Nunito,Arial';c.fillText(`Шмели: ${items.bee} / ${gt.req}`,256,148);
+      c.fillStyle='#ffe9b3';c.font='800 32px Nunito,Arial';c.fillText('соберите рой, чтобы открыть',256,212);
+    }
+    gt.sign.tex.needsUpdate=true;
+  };
+  gt.updateSign();
+  // баррикада
+  gt.blockade=new THREE.Group();gt.blockade.position.set(x,0,z);
+  function frame(zOff){
+    const f=new THREE.Group();f.position.z=zOff;
+    [-1.4,1.4].forEach(px=>{
+      const p=new THREE.Mesh(new THREE.BoxGeometry(.22,1.6,.22),M(0x8a5a2b));
+      p.position.set(px,.8,0);p.castShadow=true;f.add(p);
+    });
+    [.75,-.75].forEach(rz=>{
+      const b=new THREE.Mesh(new THREE.BoxGeometry(3.2,.2,.16),M(0xa9713a));
+      b.position.y=.85;b.rotation.z=rz;b.castShadow=true;f.add(b);
+    });
+    gt.blockade.add(f);
+  }
+  frame(.9);frame(-.9);
+  [-3,3].forEach(px=>{
+    const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.7,0),M(0x9aa3ad));
+    r.scale.y=.7;r.position.set(px,.3,0);r.castShadow=true;gt.blockade.add(r);
   });
-  [.75,-.75].forEach(rz=>{
-    const b=new THREE.Mesh(new THREE.BoxGeometry(3.2,.2,.16),M(0xa9713a));
-    b.position.y=.85;b.rotation.z=rz;b.castShadow=true;f.add(b);
+  const {tex:stopTex}=canvasTexture(256,128,c=>{
+    c.fillStyle='#b3271e';c.fillRect(0,0,256,128);
+    c.strokeStyle='#fff';c.lineWidth=10;c.strokeRect(8,8,240,112);
+    c.fillStyle='#fff';c.font='900 60px Nunito,Arial';c.textAlign='center';c.textBaseline='middle';
+    c.fillText('ЗАКРЫТО',128,66);
   });
-  blockade.add(f);
+  const stopSign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.85),
+    new THREE.MeshBasicMaterial({map:stopTex,side:THREE.DoubleSide}));
+  stopSign.position.set(0,1.9,1);gt.blockade.add(stopSign);
+  gt.blockade.visible=!gt.open;
+  scene.add(gt.blockade);
+  gates.push(gt);
+  return gt;
 }
-barricadeFrame(.9);barricadeFrame(-.9);
-[-3,3].forEach(x=>{
-  const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.7,0),M(0x9aa3ad));
-  r.scale.y=.7;r.position.set(x,.3,0);r.castShadow=true;blockade.add(r);
-});
-const {tex:stopTex}=canvasTexture(256,128,c=>{
-  c.fillStyle='#b3271e';c.fillRect(0,0,256,128);
-  c.strokeStyle='#fff';c.lineWidth=10;c.strokeRect(8,8,240,112);
-  c.fillStyle='#fff';c.font='900 60px Nunito,Arial';c.textAlign='center';c.textBaseline='middle';
-  c.fillText('ЗАКРЫТО',128,66);
-});
-const stopSign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.85),new THREE.MeshBasicMaterial({map:stopTex,side:THREE.DoubleSide}));
-stopSign.position.set(0,1.9,1);blockade.add(stopSign);
-if(gate2Open)blockade.visible=false;
-scene.add(blockade);
-
+loadGame();
+makeGate(14,-22,6,'✨ Золотой луг',null,items.gate2);
+makeGate(14,-95,10,'🌲 Пакистанский лес',pakFlagTexture(),items.gate3);
+function openGate(gt){
+  gt.open=true;gt.anim=true;
+  if(gt===gates[0])items.gate2=true;else items.gate3=true;
+  toast(`🔓 Рой набрал силу — ${gt.title} открыт!`);
+  sfx('unlock');
+  for(let i=0;i<4;i++)
+    burst(gt.x+(Math.random()-.5)*6,1,gt.z+(Math.random()-.5)*2,0xffd23f,10,3,3.5,4,.9);
+  gt.updateSign();markDirty();saveGame();
+}
 // Столкновения
 const solids=[
-  {minX:-46,maxX:10.6,minZ:-22.8,maxZ:-21.2},
-  {minX:17.4,maxX:46,minZ:-22.8,maxZ:-21.2},
   {minX:34-5.9,maxX:34+5.9,minZ:-7.5-4.3,maxZ:-7.5+4.3},
   {minX:19.2,maxX:20.8,minZ:-3.7,maxZ:-2.3},
   {minX:19.2,maxX:20.8,minZ:5.5,maxZ:6.9},
   {minX:STALL1.x-2,maxX:STALL1.x+2,minZ:STALL1.z-1.2,maxZ:STALL1.z+1.2},
   {minX:STALL2.x-2,maxX:STALL2.x+2,minZ:STALL2.z-1.2,maxZ:STALL2.z+1.2},
 ];
+for(const gt of gates){
+  solids.push({minX:-46,maxX:10.6,minZ:gt.z-.8,maxZ:gt.z+.8});
+  solids.push({minX:17.4,maxX:46,minZ:gt.z-.8,maxZ:gt.z+.8});
+}
 function resolveSolids(){
   const R=.5;
-  const rects=gate2Open?solids:solids.concat([{minX:10.6,maxX:17.4,minZ:-23.4,maxZ:-20.6}]);
+  const rects=solids.slice();
+  for(const gt of gates)if(!gt.open)
+    rects.push({minX:10.6,maxX:17.4,minZ:gt.z-1.4,maxZ:gt.z+1.4});
   for(const s of rects){
     const px=PLAYER.pos.x,pz=PLAYER.pos.z;
     if(px>s.minX-R&&px<s.maxX+R&&pz>s.minZ-R&&pz<s.maxZ+R){
@@ -565,17 +738,9 @@ function resolveSolids(){
     }
   }
 }
-function openGate2(){
-  gate2Open=true;items.gate2=true;gateAnim=true;
-  toast('🔓 Рой набрал силу — проход на Золотой луг открыт!');
-  sfx('unlock');
-  for(let i=0;i<4;i++)
-    burst(GATE2.x+(Math.random()-.5)*6,1,GATE2.z+(Math.random()-.5)*2,0xffd23f,10,3,3.5,4,.9);
-  updateGateSign();markDirty();saveGame();
-}
 
 /* ================================================================
-   5. ЗОЛОТЫЕ ПЕСКИ (инстансы) + ЗОЛОТЫЕ ЦВЕТЫ (без вращения)
+   6. ЗОЛОТО И ЦВЕТЫ (инстансы, всё с зонами для квестов)
 ================================================================ */
 const goldMat=new THREE.MeshStandardMaterial({color:0xffcf40,metalness:.85,roughness:.28,envMapIntensity:1.2});
 const crownMat=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.75,roughness:.3,envMapIntensity:1.1});
@@ -625,19 +790,19 @@ function makeGoldFlowerGeo(){
   return mergeGeometries(parts);
 }
 const gatherables=[];
-// поле 1: золото
+// Золотые пески (зона india)
+const instMeshes={};
 {
   const data=[];
   for(let r=0;r<FIELD.n;r++)for(let c=0;c<FIELD.n;c++){
     const rr=Math.random();
     const type=rr<.38?'ingot':rr<.62?'coins':rr<.78?'nugget':rr<.92?'ring':'crown';
-    data.push({kind:'gold',type,slot:0,
+    data.push({kind:'gold',type,slot:0,zone:'india',
       x:FIELD.cx+(c-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4,
       z:FIELD.cz+(r-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4,
       phase:Math.random()*6.28,baseScale:.92+Math.random()*.18,scale:1,amount:1,
       value:ITEMS[type].value,color:ITEMS[type].c});
   }
-  window.instMeshes={};
   const geos={ingot:makeIngotGeo(),coins:makeCoinsGeo(),nugget:makeNuggetGeo(),ring:makeRingGeo(),crown:makeCrownGeo()};
   for(const t in geos){
     const list=data.filter(d=>d.type===t);
@@ -648,19 +813,22 @@ const gatherables=[];
     list.forEach((d,i)=>{d.slot=i;gatherables.push(d);});
   }
 }
-// поле 2: золотые цветы
+// Золотые цветы: Луг (gypsy) + Лахор (paki), без вращения
 let flowerMesh;
 {
-  const geo=makeGoldFlowerGeo();
   const list=[];
-  for(let r=0;r<FIELD2.n;r++)for(let c=0;c<FIELD2.n;c++){
-    list.push({kind:'flower',slot:0,
-      x:FIELD2.cx+(c-(FIELD2.n-1)/2)*FIELD2.sp+(Math.random()-.5)*.4,
-      z:FIELD2.cz+(r-(FIELD2.n-1)/2)*FIELD2.sp+(Math.random()-.5)*.4,
-      phase:Math.random()*6.28,baseScale:.95+Math.random()*.15,scale:1,amount:1,
-      value:2,color:0xffd24a});
+  function addFlowerField(F,zone,value){
+    for(let r=0;r<F.n;r++)for(let c=0;c<F.n;c++){
+      list.push({kind:'flower',slot:0,zone,value,
+        x:F.cx+(c-(F.n-1)/2)*F.sp+(Math.random()-.5)*.4,
+        z:F.cz+(r-(F.n-1)/2)*F.sp+(Math.random()-.5)*.4,
+        phase:Math.random()*6.28,baseScale:.95+Math.random()*.15,scale:1,amount:1,
+        color:0xffd24a});
+    }
   }
-  flowerMesh=new THREE.InstancedMesh(geo,flowerMat,list.length);
+  addFlowerField(FIELD2,'gypsy',2);
+  addFlowerField(FIELD3,'paki',3.5);
+  flowerMesh=new THREE.InstancedMesh(makeGoldFlowerGeo(),flowerMat,list.length);
   flowerMesh.castShadow=true;flowerMesh.frustumCulled=false;
   flowerMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(flowerMesh);
@@ -676,7 +844,7 @@ function updateItems(dt){
     if(f.kind==='gold'){
       _dummy.position.set(f.x,SOIL_TOP+Math.sin(elapsed*2+f.phase)*.04,f.z);
       _dummy.rotation.set(Math.sin(f.phase)*.12,elapsed*(.5+f.phase*.08)+f.phase,0);
-    }else{ // цветы — НЕ вращаются
+    }else{
       _dummy.position.set(f.x,SOIL_TOP,f.z);
       _dummy.rotation.set(0,f.phase,0);
     }
@@ -696,25 +864,9 @@ function updateItems(dt){
 }
 
 /* ================================================================
-   6. ИНДИЙСКИЕ ВОРОТА (обмен)
+   7. ИНДИЙСКИЕ ВОРОТА (обмен)
 ================================================================ */
-const flags=[];let barrier=null;
-function indiaFlagTexture(){
-  const {tex}=canvasTexture(512,320,c=>{
-    c.fillStyle='#FF9933';c.fillRect(0,0,512,107);
-    c.fillStyle='#FFFFFF';c.fillRect(0,107,512,106);
-    c.fillStyle='#138808';c.fillRect(0,213,512,107);
-    const cx=256,cy=160,r=44;
-    c.strokeStyle='#000080';c.lineWidth=6;
-    c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();
-    for(let i=0;i<24;i++){
-      const a=i/24*Math.PI*2;
-      c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);c.stroke();
-    }
-    c.fillStyle='#000080';c.beginPath();c.arc(cx,cy,7,0,Math.PI*2);c.fill();
-  });
-  return tex;
-}
+let barrier=null;
 {
   const g=new THREE.Group();g.position.set(GATE.x,0,GATE.z);
   const stone=M(0xd8c49a);
@@ -766,7 +918,7 @@ const padRing=new THREE.Mesh(new THREE.RingGeometry(2.8,3.15,6).rotateX(-Math.PI
 padRing.position.set(GATE.x,.05,GATE.z);scene.add(padRing);
 
 /* ================================================================
-   7. ЦЫГАНСКИЙ ОСОБНЯК
+   8. ЦЫГАНСКИЙ ОСОБНЯК
 ================================================================ */
 const bunters=[];
 {
@@ -827,7 +979,7 @@ const bunters=[];
 }
 
 /* ================================================================
-   8. ЛАВКИ: Индийский базар + Цыганский шатёр
+   9. ЛАВКИ + ГАЗИПУР
 ================================================================ */
 let campFlame=null,campLight=null;
 function buildStall(x,z,ry,c1,c2){
@@ -861,9 +1013,8 @@ function buildStall(x,z,ry,c1,c2){
   sign.position.set(0,2.35,1.05);g.add(sign);
   scene.add(g);
 }
-buildStall(STALL1.x,STALL1.z,Math.PI,'#ff9933','#ffffff'); // индийский
-buildStall(STALL2.x,STALL2.z,0,'#c0392b','#2a9d8f');       // цыганский
-// Костёр и ковры у шатра
+buildStall(STALL1.x,STALL1.z,Math.PI,'#ff9933','#ffffff');
+buildStall(STALL2.x,STALL2.z,0,'#c0392b','#2a9d8f');
 {
   const g=new THREE.Group();g.position.set(13.5,0,-53);
   for(let i=0;i<3;i++){
@@ -879,9 +1030,69 @@ buildStall(STALL2.x,STALL2.z,0,'#c0392b','#2a9d8f');       // цыганский
     rug.position.set(x,.03,z);rug.rotation.y=ry;rug.receiveShadow=true;scene.add(rug);
   });
 }
+// Газипур
+const gaz={g:null,aL:null,aR:null,head:null};
+let gazMarker;
+{
+  const g=new THREE.Group();g.position.set(GAZI.x,0,GAZI.z);
+  const kurta=M(0x2a9d8f),vest=M(0xc0392b),skin=M(0xd9a066),dark=M(0x3a2a1a);
+  function limb(w,h,dp,mat,px,py){
+    const grp=new THREE.Group();grp.position.set(px,py,0);
+    const geo=new THREE.BoxGeometry(w,h,dp);geo.translate(0,-h/2,0);
+    const m=new THREE.Mesh(geo,mat);m.castShadow=true;grp.add(m);g.add(grp);return grp;
+  }
+  limb(.34,.85,.34,dark,-.24,.88);
+  limb(.34,.85,.34,dark,.24,.88);
+  gaz.aL=limb(.28,.85,.28,kurta,-.66,1.72);
+  gaz.aR=limb(.28,.85,.28,kurta,.66,1.72);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.95,1.05,.5),kurta);
+  body.position.y=1.38;body.castShadow=true;g.add(body);
+  const v=new THREE.Mesh(new THREE.BoxGeometry(.97,.7,.52),vest);
+  v.position.y=1.5;g.add(v);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.85,.85,.85),skin);
+  head.position.y=2.4;head.castShadow=true;g.add(head);
+  gaz.head=head;
+  const eM=M(0x222222);
+  [-.18,.18].forEach(x=>{
+    const e=new THREE.Mesh(new THREE.BoxGeometry(.09,.13,.04),eM);
+    e.position.set(x,.1,.44);head.add(e);
+  });
+  const mu=new THREE.Mesh(new THREE.BoxGeometry(.44,.12,.06),M(0x2b2b2b));
+  mu.position.set(0,-.16,.45);head.add(mu);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(.5,.55,.35,8),M(0x5b4632));
+  cap.position.y=.55;head.add(cap);
+  const capTop=new THREE.Mesh(new THREE.CylinderGeometry(.42,.5,.12,8),M(0x4a3826));
+  capTop.position.y=.74;head.add(capTop);
+  const rug=new THREE.Mesh(new THREE.BoxGeometry(2.6,.05,2),M(0x7a3b52));
+  rug.position.y=.03;rug.receiveShadow=true;g.add(rug);
+  scene.add(g);
+  gaz.g=g;
+}
+function markerTex(ch,bg){
+  const {tex}=canvasTexture(128,128,c=>{
+    c.fillStyle=bg;c.beginPath();c.arc(64,64,52,0,Math.PI*2);c.fill();
+    c.lineWidth=8;c.strokeStyle='rgba(60,30,5,.9)';c.stroke();
+    c.fillStyle='#fff';c.font='900 72px Nunito,Arial';c.textAlign='center';c.textBaseline='middle';
+    c.fillText(ch,64,70);
+  });
+  return tex;
+}
+const mkAvail=markerTex('!','#f4a300'),mkActive=markerTex('?','#4a90d9'),mkDone=markerTex('✓','#2ecc71');
+gazMarker=new THREE.Sprite(new THREE.SpriteMaterial({map:mkAvail}));
+gazMarker.scale.set(.85,.85,1);
+gazMarker.position.set(GAZI.x,3.3,GAZI.z);
+scene.add(gazMarker);
+function updateMarker(){
+  let m=mkAvail;
+  if(quest){
+    const def=qById(quest.id);
+    m=quest.progress>=def.need?mkDone:mkActive;
+  }
+  gazMarker.material.map=m;
+}
 
 /* ================================================================
-   9. ИГРОК
+   10. ИГРОК
 ================================================================ */
 const PLAYER={pos:new THREE.Vector3(12,0,12),vel:new THREE.Vector3(),yaw:1.15,onGround:true,moveAmt:0,walk:0};
 const playerRoot=new THREE.Group(),pInner=new THREE.Group();
@@ -948,6 +1159,7 @@ new GLTFLoader().load('files/male.glb',
 function groundYAt(x,z){
   if(Math.abs(x-FIELD.cx)<18&&Math.abs(z-FIELD.cz)<18)return SOIL_TOP;
   if(Math.abs(x-FIELD2.cx)<15.5&&Math.abs(z-FIELD2.cz)<15.5)return SOIL_TOP;
+  if(Math.abs(x-FIELD3.cx)<15.5&&Math.abs(z-FIELD3.cz)<15.5)return SOIL_TOP;
   return 0;
 }
 const _f=new THREE.Vector3(),_r=new THREE.Vector3(),_m=new THREE.Vector3(),
@@ -975,7 +1187,7 @@ function updatePlayer(dt){
   if(keys.Space&&PLAYER.onGround){PLAYER.vel.y=12.5;PLAYER.onGround=false;sfx('jump');}
   PLAYER.pos.addScaledVector(PLAYER.vel,dt);
   PLAYER.pos.x=THREE.MathUtils.clamp(PLAYER.pos.x,-43.8,43.8);
-  PLAYER.pos.z=THREE.MathUtils.clamp(PLAYER.pos.z,-93.8,43.8);
+  PLAYER.pos.z=THREE.MathUtils.clamp(PLAYER.pos.z,-158.8,43.8);
   resolveSolids();
   const gy=groundYAt(PLAYER.pos.x,PLAYER.pos.z);
   if(PLAYER.pos.y<=gy){PLAYER.pos.y=gy;if(PLAYER.vel.y<0)PLAYER.vel.y=0;PLAYER.onGround=true;}
@@ -1014,7 +1226,7 @@ function updatePlayer(dt){
 }
 
 /* ================================================================
-   10. СБОР
+   11. СБОР
 ================================================================ */
 const raycaster=new THREE.Raycaster();
 const aimPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.4);
@@ -1056,19 +1268,20 @@ function doHarvest(){
   let gained=0;
   for(const f of _cand.slice(0,6)){
     if(pollen>=capacity)break;
-    const g=Math.min(Math.max(1,Math.round(f.value*gatherMult)),capacity-pollen);
+    const g=Math.min(Math.round(f.value*gatherMult*10)/10,capacity-pollen);
     pollen+=g;gained+=g;
     f.amount=Math.max(0,f.amount-.22);
     burst(f.x,SOIL_TOP+(f.kind==='flower'?1.2:.8)*(f.scale||1),f.z,f.color);
   }
   if(gained>0){
-    floatText(_camT.copy(aimPoint).add(new THREE.Vector3(0,1.5,0)),'+'+gained,'pollen');
+    floatText(_camT.copy(aimPoint).add(new THREE.Vector3(0,1.5,0)),'+'+fmt(gained),'pollen');
     sfx('pop');markDirty();
+    questGain(_cand[0].zone,gained);
   }
 }
 
 /* ================================================================
-   11. ОБМЕН У ВОРОТ
+   12. ОБМЕН У ВОРОТ
 ================================================================ */
 let goldAcc=0;
 function updateConvert(dt){
@@ -1099,12 +1312,13 @@ function checkBeeReward(){
     rewardIdx++;
     items.bee++;spawnBumble();applyItems();
     toast('🐝 Новый шмель присоединился к рою!');
-    sfx('ding');markDirty();updateGateSign();
+    sfx('ding');markDirty();
+    gates.forEach(g=>g.updateSign());
   }
 }
 
 /* ================================================================
-   12. ШМЕЛИ
+   13. ШМЕЛИ
 ================================================================ */
 const bumbleBody=new THREE.SphereGeometry(.42,10,8),
       bumbleTail=new THREE.SphereGeometry(.3,8,6),
@@ -1165,6 +1379,7 @@ class Bumble{
         if(pollen<capacity){
           const b=Math.min(Math.max(2,Math.round(2*gatherMult)),capacity-pollen);
           pollen+=b;markDirty();
+          questGain(f.zone,b);
           floatText(_camT.set(f.x,SOIL_TOP+1.8,f.z),'+'+b+' 🐝','bee');
           burst(f.x,SOIL_TOP+1.2,f.z,0xffe86b,5,1.5,1.8,4,.5);
           sfx('buzz');
@@ -1201,11 +1416,11 @@ function spawnBumble(){playerBumbles.push(new Bumble('follow'));}
 const homeBumbles=[new Bumble('home'),new Bumble('home'),new Bumble('home')];
 
 /* ================================================================
-   13. БАБОЧКИ
+   14. БАБОЧКИ
 ================================================================ */
 const butterflies=[];
-for(let i=0;i<6;i++){
-  const col=[0xff7bd5,0x7fd4ff,0xffa53f,0xb28dff,0x9dff8a,0xffe86b][i];
+for(let i=0;i<8;i++){
+  const col=[0xff7bd5,0x7fd4ff,0xffa53f,0xb28dff,0x9dff8a,0xffe86b,0xff9a9a,0xc0fff0][i];
   const g=new THREE.Group();
   const wg=()=>new THREE.PlaneGeometry(.34,.24).rotateX(-Math.PI/2);
   const wm=new THREE.MeshBasicMaterial({color:col,side:THREE.DoubleSide});
@@ -1213,7 +1428,7 @@ for(let i=0;i<6;i++){
   const wr=new THREE.Mesh(wg().translate(-.19,0,0),wm);
   const body=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,.3),M(0x333333));
   g.add(wl,wr,body);scene.add(g);
-  const zone=i<4?FIELD:FIELD2;
+  const zone=[FIELD,FIELD,FIELD,FIELD,FIELD2,FIELD2,FIELD3,FIELD3][i];
   butterflies.push({g,wl,wr,zone,a:Math.random()*6.28,b:Math.random()*6.28,
     sa:.3+Math.random()*.3,sb:.4+Math.random()*.3,
     r1:6+Math.random()*8,r2:5+Math.random()*7,h:1.6+Math.random()*1.6,
@@ -1233,7 +1448,7 @@ function updateButterflies(dt){
 }
 
 /* ================================================================
-   14. ЧАСТИЦЫ / ТЕКСТ / ТОСТЫ / ЗВУК
+   15. ЧАСТИЦЫ / ТЕКСТ / ТОСТЫ / ЗВУК
 ================================================================ */
 const PMAX=360;
 const pPos=new Float32Array(PMAX*3),pCol=new Float32Array(PMAX*3),
@@ -1334,10 +1549,10 @@ function sfx(kind){
 }
 
 /* ================================================================
-   15. ЛАВКИ (товары и покупка)
+   16. ЛАВКИ (товары)
 ================================================================ */
 const SHOP1=[
-  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.9,max:8},
+  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.6,max:12},
   {id:'pack',icon:'🎒',name:'Рюкзак «Махараджа»',desc:'+50 к вместимости рюкзака',base:100,mult:2,max:3},
   {id:'boots',icon:'👞',name:'Туфли джути',desc:'Быстрее бег (+1.5 к скорости)',base:80,mult:2,max:2},
   {id:'net',icon:'🪺',name:'Сеть «Дивали»',desc:'+50% самородков за каждый сбор',base:150,mult:2.2,max:2},
@@ -1377,7 +1592,7 @@ function renderShop(){
       if(d.id==='bee')spawnBumble();
       applyItems();markDirty();saveGame();sfx('buy');
       toast(`🛒 Куплено: ${d.name}`);
-      updateGateSign();
+      gates.forEach(g=>g.updateSign());
       renderShop();
     });
     card.appendChild(btn);shopCards.appendChild(card);
@@ -1409,12 +1624,82 @@ document.getElementById('shopBtn').addEventListener('click',()=>{
 document.getElementById('shopClose').addEventListener('click',closeShop);
 
 /* ================================================================
-   16. HUD
+   17. ДИАЛОГ ГАЗИПУРА
+================================================================ */
+let talkOpen=false,talkMode='offer',talkOffer=null;
+const talkText=document.getElementById('talkText'),
+      talkOk=document.getElementById('talkOk'),
+      talkBye=document.getElementById('talkBye');
+function refreshTalk(){
+  if(!quest){
+    talkOffer=pickQuest();
+    talkMode='offer';
+    talkText.innerHTML=`Есть работёнка, друг: <b>«${talkOffer.name}»</b>.<br>${talkOffer.desc}<br>Заплачу чистым золотом: <b>🪙 ${talkOffer.reward}</b>.`;
+    talkOk.textContent='Взять квест';talkOk.style.display='';
+    talkBye.textContent='Позже';
+  }else{
+    const def=qById(quest.id);
+    if(quest.progress>=def.need){
+      talkMode='turnin';
+      talkText.innerHTML=`О-о, ты сделал <b>«${def.name}»</b>! Забирай награду, как договаривались.`;
+      talkOk.textContent=`Забрать 🪙 ${def.reward}`;talkOk.style.display='';
+      talkBye.textContent='Позже';
+    }else{
+      talkMode='progress';
+      talkText.innerHTML=`Как продвигается <b>«${def.name}»</b>?<br>Принесено: <b>${fmt(quest.progress)} / ${def.need}</b>. Не зевай!`;
+      talkOk.textContent='Понял';talkOk.style.display='';
+      talkBye.style.display='none';
+    }
+  }
+}
+function openTalk(){
+  talkOpen=true;refreshTalk();
+  document.body.classList.add('talk');
+  controls.unlock();
+}
+function closeTalk(){
+  if(!talkOpen)return;
+  talkOpen=false;
+  document.body.classList.remove('talk');
+  talkBye.style.display='';
+  controls.lock();
+}
+talkOk.addEventListener('click',()=>{
+  if(talkMode==='offer'){
+    quest={id:talkOffer.id,progress:0};
+    lastQuest=talkOffer.id;
+    toast(`📜 Квест взят: «${talkOffer.name}»`);
+    sfx('buy');markDirty();saveGame();
+    updateMarker();
+    closeTalk();
+  }else if(talkMode==='turnin'){
+    const def=qById(quest.id);
+    gold+=def.reward;
+    quest=null;
+    toast(`🪙 Газипур заплатил ${def.reward} золота!`);
+    sfx('ding');markDirty();saveGame();
+    checkBeeReward();
+    burst(GAZI.x,2,GAZI.z,0xffc61a,16,2.5,3,4,.9);
+    updateMarker();
+    refreshTalk(); // сразу следующий квест
+  }else{
+    closeTalk();
+  }
+});
+talkBye.addEventListener('click',closeTalk);
+document.getElementById('talkScreen').addEventListener('click',e=>{
+  if(e.target.id==='talkScreen')closeTalk();
+});
+
+/* ================================================================
+   18. HUD
 ================================================================ */
 const packText=document.getElementById('packText'),packFill=document.getElementById('packFill'),
       packPanel=document.getElementById('packPanel'),goldNum=document.getElementById('goldNum'),
       goldChip=document.getElementById('goldChip'),beeNum=document.getElementById('beeNum'),
-      hintEl=document.getElementById('hint');
+      hintEl=document.getElementById('hint'),
+      questPanel=document.getElementById('questPanel'),questName=document.getElementById('questName'),
+      questFill=document.getElementById('questFill'),questNum=document.getElementById('questNum');
 let shownPollen=-1,shownGold=-1,shownHint='',shownBees=-1;
 function updateHUD(){
   const p=Math.round(pollen);
@@ -1429,21 +1714,29 @@ function updateHUD(){
     if(shopOpen)shopGold.textContent=`Ваше золото: 🪙 ${h}`;
   }
   if(playerBumbles.length!==shownBees){shownBees=playerBumbles.length;beeNum.textContent='×'+shownBees;}
+  if(quest){
+    const def=qById(quest.id);
+    questPanel.classList.add('show');
+    questName.textContent=`📜 ${def.name} · 🪙 ${def.reward}`;
+    questFill.style.width=Math.min(100,quest.progress/def.need*100)+'%';
+    questNum.textContent=`${fmt(Math.min(quest.progress,def.need))}/${def.need}`;
+  }else questPanel.classList.remove('show');
   let txt,warn=false;
   if(pollen>=capacity-.5){txt='⚠️ Рюкзак полон — несите самородки к Индийским воротам!';warn=true;}
   else if(converting)txt='💱 Обмен самородков на золото…';
-  else if(!gate2Open&&nearGate2)txt=`🔒 Проход закрыт: нужно 6 шмелей (у вас ${items.bee})`;
+  else if(nearGateTxt)txt=nearGateTxt;
+  else if(nearGazipur)txt='E — Газипур: квесты и награды';
   else if(nearShopName)txt=`🛒 Нажмите E — ${nearShopName}`;
   else if(harvest.active)txt='Сбор самородков… ✨';
   else if(nearField)txt='Зажмите ЛКМ рядом с золотом, чтобы собрать самородки';
-  else txt='WASD — движение · SPACE — прыжок · ЛКМ — сбор · E — лавка';
+  else txt='WASD — движение · SPACE — прыжок · ЛКМ — сбор · E — лавка/Газипур';
   if(txt!==shownHint){shownHint=txt;hintEl.textContent=txt;hintEl.classList.toggle('warn',warn);}
   if(pollen>=capacity-.5&&!fullWarned){fullWarned=true;toast('🎒 Рюкзак полон! Несите самородки к воротам →');}
   if(pollen<50)fullWarned=false;
 }
 
 /* ================================================================
-   17. ВВОД
+   19. ВВОД
 ================================================================ */
 const controls=new PointerLockControls(camera,renderer.domElement);
 controls.minPolarAngle=.35;controls.maxPolarAngle=2.6;
@@ -1453,7 +1746,10 @@ addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space')e.preventDefault();
   if(e.code==='KeyE'){
-    if(controls.isLocked)tryOpenShop();
+    if(controls.isLocked){
+      if(nearGazipur)openTalk();
+      else tryOpenShop();
+    }else if(talkOpen)closeTalk();
     else if(shopOpen)closeShop();
   }
 });
@@ -1470,13 +1766,13 @@ controls.addEventListener('lock',()=>{
   document.body.classList.add('playing');
   document.body.classList.remove('paused');
   if(!window.__introShown){window.__introShown=true;
-    toast('✨ Собирайте самородки, копите шмелей и откройте Золотой луг!');}
+    toast('✨ Собирайте самородки, копите шмелей и открывайте новые земли!');}
   if(AC&&AC.state==='suspended')AC.resume();
 });
 controls.addEventListener('unlock',()=>{
   document.body.classList.remove('harvesting');
   mouse.down=false;harvest.active=false;reticle.visible=false;
-  if(!shopOpen)document.body.classList.add('paused');
+  if(!shopOpen&&!talkOpen)document.body.classList.add('paused');
   saveGame();
 });
 document.getElementById('playBtn').addEventListener('click',e=>{
@@ -1486,9 +1782,10 @@ document.getElementById('pauseScreen').addEventListener('click',()=>controls.loc
 addEventListener('beforeunload',()=>saveGame());
 
 /* ================================================================
-   18. ГЛАВНЫЙ ЦИКЛ
+   20. ГЛАВНЫЙ ЦИКЛ
 ================================================================ */
 for(let i=0;i<items.bee;i++)spawnBumble();
+updateMarker();
 shownGold=-1;shownBees=-1;
 
 const clock=new THREE.Clock();
@@ -1517,10 +1814,19 @@ function animate(){
     campFlame.rotation.y+=dt*2;
     campLight.intensity=7+Math.sin(elapsed*17)*2;
   }
-  if(gateAnim){
-    blockade.position.y-=dt*1.6;
-    if(blockade.position.y<-2.4){gateAnim=false;blockade.visible=false;}
+  for(const gt of gates){
+    if(gt.anim){
+      gt.blockade.position.y-=dt*1.6;
+      if(gt.blockade.position.y<-2.4){gt.anim=false;gt.blockade.visible=false;}
+    }
   }
+  // Газипур: лёгкая жизнь + маркер
+  if(gaz.aL){
+    gaz.aL.rotation.x=Math.sin(elapsed*1.8)*.12;
+    gaz.aR.rotation.x=-Math.sin(elapsed*1.8)*.12;
+    gaz.head.rotation.y=Math.sin(elapsed*.7)*.25;
+  }
+  gazMarker.position.y=3.3+Math.sin(elapsed*2.6)*.18;
 
   if(controls.isLocked){
     updatePlayer(dt);
@@ -1528,10 +1834,18 @@ function animate(){
     for(const b of playerBumbles)b.update(dt);
     updateConvert(dt);
     checkBeeReward();
-    if(!gate2Open&&items.bee>=6)openGate2();
+    for(const gt of gates)if(!gt.open&&items.bee>=gt.req)openGate(gt);
     nearField=(PLAYER.pos.x-FIELD.cx)**2+(PLAYER.pos.z-FIELD.cz)**2<21*21
-           ||(PLAYER.pos.x-FIELD2.cx)**2+(PLAYER.pos.z-FIELD2.cz)**2<19*19;
-    nearGate2=!gate2Open&&(PLAYER.pos.x-GATE2.x)**2+(PLAYER.pos.z-GATE2.z)**2<144;
+           ||(PLAYER.pos.x-FIELD2.cx)**2+(PLAYER.pos.z-FIELD2.cz)**2<19*19
+           ||(PLAYER.pos.x-FIELD3.cx)**2+(PLAYER.pos.z-FIELD3.cz)**2<19*19;
+    nearGateTxt=null;
+    for(const gt of gates){
+      if(!gt.open&&(PLAYER.pos.x-gt.x)**2+(PLAYER.pos.z-gt.z)**2<144){
+        nearGateTxt=`🔒 Проход закрыт: нужно ${gt.req} шмелей (у вас ${items.bee})`;
+        break;
+      }
+    }
+    nearGazipur=(PLAYER.pos.x-GAZI.x)**2+(PLAYER.pos.z-GAZI.z)**2<16;
     const ns=nearestShop();
     nearShopName=ns?ns.name.replace(/^[^\s]+\s/,''):null;
   }else{
