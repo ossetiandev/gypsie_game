@@ -178,7 +178,7 @@
   <div class="chip" id="goldChip">🪙 <span id="goldNum">0</span></div>
   <div class="chip" id="beeChip">🐝 <span id="beeNum">×2</span></div>
   <button id="shopBtn">🛒 ЛАВКА [E]</button>
-  <button id="liteBtn">⚡ ЭКОНОМ</button>
+  <button id="liteBtn">⚡ ЭКОНОМ [Q]</button>
   <div id="questPanel">
     <div id="questName">📜 Квест</div>
     <div id="questBar"><div id="questFill"></div></div>
@@ -210,6 +210,7 @@
       <span class="key"><b>SPACE</b> — прыжок</span>
       <span class="key"><b>ЛКМ</b> — сбор золота</span>
       <span class="key"><b>E</b> — лавка / Газипур</span>
+      <span class="key"><b>Q</b> — режим экономии</span>
       <span class="key"><b>ESC</b> — пауза</span>
     </div>
     <button class="btn" id="playBtn">▶ ИГРАТЬ</button>
@@ -220,7 +221,11 @@
 <div class="screen" id="pauseScreen">
   <div class="panel">
     <h2>⏸ ПАУЗА</h2>
-    <p>Кликните, чтобы вернуться в игру</p>
+    <p style="margin-bottom:18px">Клик мимо кнопок — вернуться в игру</p>
+    <div class="talkBtns">
+      <button class="btn small" id="pausePlayBtn">▶ Продолжить</button>
+      <button class="btn small alt" id="pauseLiteBtn">⚡ ЭКОНОМ [Q]</button>
+    </div>
   </div>
 </div>
 
@@ -456,7 +461,6 @@ const ground=new THREE.Mesh(new THREE.BoxGeometry(92,3,277),
   [M(0x8a5a2b),M(0x8a5a2b),M(0x67bd45),M(0x6a4321),M(0x8a5a2b),M(0x8a5a2b)]);
 ground.position.set(0,-1.5,-93.5);ground.receiveShadow=true;scene.add(ground);
 
-// Песок Сомали
 const desert=new THREE.Mesh(new THREE.BoxGeometry(92,.1,69),M(0xe8cf8f));
 desert.position.set(0,0,-197);desert.receiveShadow=true;scene.add(desert);
 
@@ -486,10 +490,9 @@ pathBox(3.2,28,14,-109);
 pathBox(18,3.2,4,-112);
 pathBox(3.2,34,14,-145);
 pathBox(3.2,12,14,-158);
-pathBox(3.2,52,14,-188);   // пустыня
-pathBox(18,3.2,5,-196);    // → сомалийское поле
+pathBox(3.2,52,14,-188);
+pathBox(18,3.2,5,-196);
 
-// Пятна травы (только зелёные зоны)
 {
   const g=new THREE.CircleGeometry(1,6).rotateX(-Math.PI/2);
   const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),110);
@@ -509,7 +512,6 @@ pathBox(18,3.2,5,-196);    // → сомалийское поле
   }
   im.receiveShadow=true;scene.add(im);
 }
-// Пучки травы
 {
   const g=new THREE.ConeGeometry(.13,.42,4);
   const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),300);
@@ -531,7 +533,6 @@ pathBox(18,3.2,5,-196);    // → сомалийское поле
   }
   scene.add(im);
 }
-// Забор по периметру (вытянутый)
 {
   const g=new THREE.BoxGeometry(.35,1.3,.35);
   const pos=[];
@@ -561,7 +562,6 @@ function tree(x,z,s){
 tree(-38,-30,1.2);tree(-34,28,1);tree(10,-36,.9);tree(36,-32,1);tree(38,30,1.15);tree(-40,8,1.1);
 tree(-38,-70,1.3);tree(36,-80,1.2);tree(-36,-45,1);tree(30,-62,1.1);tree(6,-88,1.1);
 
-// Пакистанские ели: две инстанс-партии
 function pineBatch(count){
   const spots=[];let tries=0;
   while(spots.length<count&&tries++<1200){
@@ -592,8 +592,7 @@ function pineBatch(count){
   scene.add(trunkIM,coneIM);
 }
 pineBatch(46);
-pineBatch(26); // больше ёлок!
-// Огромные декоративные ели
+pineBatch(26);
 function giantFir(x,z,s=1){
   const g=new THREE.Group();g.position.set(x,0,z);g.scale.setScalar(s);
   const trunk=new THREE.Mesh(new THREE.BoxGeometry(1.2,4.5,1.2),M(0x6a4321));
@@ -701,7 +700,6 @@ function cactus(x,z,s){
  [34,-198,1.3],[-34,-206,1],[10,-224,1],[-2,-170,.8],[30,-172,.9],[-38,-176,1.1]]
  .forEach(([x,z,s])=>cactus(x,z,s));
 
-// Дюны и сухие кусты
 [[-25,-180,6],[25,-190,7],[-15,-225,8],[30,-225,6],[-38,-215,5]].forEach(([x,z,s])=>{
   const d=new THREE.Mesh(new THREE.SphereGeometry(s,8,6),M(0xe2c37f));
   d.scale.set(1,.16,.8);d.position.set(x,0,z);d.receiveShadow=true;scene.add(d);
@@ -710,7 +708,6 @@ function cactus(x,z,s){
   const b=new THREE.Mesh(new THREE.ConeGeometry(.5,.7,5),M(0x9a7b4f));
   b.position.set(x,.35,z);b.rotation.y=Math.random()*3;b.castShadow=true;scene.add(b);
 });
-// Статичные флаги Сомали (без анимации)
 function flagPole(x,z,h,ry){
   const g=new THREE.Group();g.position.set(x,0,z);
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,h,6),M(0x8a8a8a));
@@ -730,7 +727,7 @@ flagPole(27,-212,4,1.2);
 /* ================================================================
    6. ВОРОТА-ЗАМКИ (6 / 10 / 15 шмелей)
 ================================================================ */
-const flags=[]; // только АНИМИРОВАННЫЕ флаги
+const flags=[];
 const gates=[];
 function makeGate(x,z,req,title,flagTex,initialOpen,staticFlagTex){
   const gt={x,z,req,title,open:initialOpen,anim:false};
@@ -846,7 +843,7 @@ const solids=[
   {minX:19.2,maxX:20.8,minZ:5.5,maxZ:6.9},
   {minX:STALL1.x-2,maxX:STALL1.x+2,minZ:STALL1.z-1.2,maxZ:STALL1.z+1.2},
   {minX:STALL2.x-2,maxX:STALL2.x+2,minZ:STALL2.z-1.2,maxZ:STALL2.z+1.2},
-  {minX:18.9,maxX:22.1,minZ:-47.2,maxZ:-44}, // телега
+  {minX:18.9,maxX:22.1,minZ:-47.2,maxZ:-44},
 ];
 for(const gt of gates){
   solids.push({minX:-46,maxX:10.6,minZ:gt.z-.8,maxZ:gt.z+.8});
@@ -1049,7 +1046,6 @@ const padRingIn=new THREE.Mesh(new THREE.RingGeometry(2.8,3.15,6).rotateX(-Math.
   new THREE.MeshBasicMaterial({color:0xff9933,transparent:true,opacity:.85,side:THREE.DoubleSide}));
 padRingIn.position.set(GATE.x,.05,GATE.z);scene.add(padRingIn);
 
-// Сомалийские ворота (обмен ×2)
 let barrier2=null;
 const padMatSo=new THREE.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:.4,side:THREE.DoubleSide});
 const padSo=new THREE.Mesh(new THREE.CircleGeometry(2.8,6).rotateX(-Math.PI/2),padMatSo);
@@ -1156,7 +1152,6 @@ const bunters=[];
   const lamp=new THREE.PointLight(0xffb35c,20,14);lamp.position.set(0,3,5.5);g.add(lamp);
   scene.add(g);
 }
-// Декоративная телега
 {
   const g=new THREE.Group();g.position.set(20.5,0,-45.5);g.rotation.y=.55;
   const wood=M(0x8a5a2b),wood2=M(0x6a4321);
@@ -1922,21 +1917,25 @@ document.getElementById('talkScreen').addEventListener('click',e=>{
 });
 
 /* ================================================================
-   19. РЕЖИМ ЭКОНОМИИ (оптимизация)
+   19. РЕЖИМ ЭКОНОМИИ — Q, кнопка в паузе, кнопка HUD
 ================================================================ */
 const liteBtn=document.getElementById('liteBtn');
+const pauseLiteBtn=document.getElementById('pauseLiteBtn');
 function applyLite(){
   playerBumbles.forEach(b=>b.group.visible=!liteMode);
   homeBumbles.forEach(b=>b.group.visible=!liteMode);
   butterflies.forEach(b=>b.g.visible=!liteMode);
-  liteBtn.textContent=liteMode?'⚡ ЭКОНОМ: ВКЛ':'⚡ ЭКОНОМ';
+  liteBtn.textContent=liteMode?'⚡ ЭКОНОМ: ВКЛ':'⚡ ЭКОНОМ [Q]';
   liteBtn.classList.toggle('on',liteMode);
+  pauseLiteBtn.textContent=liteMode?'⚡ ЭКОНОМ [Q]: ВКЛ':'⚡ ЭКОНОМ [Q]';
 }
-liteBtn.addEventListener('click',()=>{
+function toggleLite(){
   liteMode=!liteMode;
   applyLite();saveGame();
   toast(liteMode?'⚡ Экономия ВКЛ: шмели и анимации скрыты':'⚡ Экономия ВЫКЛ: всё снова живое');
-});
+}
+liteBtn.addEventListener('click',toggleLite);
+pauseLiteBtn.addEventListener('click',toggleLite);
 
 /* ================================================================
    20. HUD
@@ -1976,7 +1975,7 @@ function updateHUD(){
   else if(nearShopName)txt=`🛒 Нажмите E — ${nearShopName}`;
   else if(harvest.active)txt='Сбор самородков… ✨';
   else if(nearField)txt='Зажмите ЛКМ рядом с золотом, чтобы собрать самородки';
-  else txt='WASD — движение · SPACE — прыжок · ЛКМ — сбор · E — лавка/Газипур';
+  else txt='WASD — движение · SPACE — прыжок · ЛКМ — сбор · E — лавка/Газипур · Q — эконом';
   if(txt!==shownHint){shownHint=txt;hintEl.textContent=txt;hintEl.classList.toggle('warn',warn);}
   if(pollen>=capacity-.5&&!fullWarned){fullWarned=true;toast('🎒 Рюкзак полон! Несите самородки к воротам →');}
   if(pollen<50)fullWarned=false;
@@ -1992,6 +1991,7 @@ camera.position.set(16.9,3.2,14.2);
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space')e.preventDefault();
+  if(e.code==='KeyQ')toggleLite();
   if(e.code==='KeyE'){
     if(controls.isLocked){
       if(nearGazipur)openTalk();
@@ -2025,7 +2025,10 @@ controls.addEventListener('unlock',()=>{
 document.getElementById('playBtn').addEventListener('click',e=>{
   initAudio();controls.lock();e.target.blur();
 });
-document.getElementById('pauseScreen').addEventListener('click',()=>controls.lock());
+document.getElementById('pauseScreen').addEventListener('click',e=>{
+  if(e.target.closest('#pauseLiteBtn'))return; // эконом не продолжает игру
+  controls.lock();
+});
 addEventListener('beforeunload',()=>saveGame());
 
 /* ================================================================
