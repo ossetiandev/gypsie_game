@@ -203,7 +203,7 @@
     <div class="hex h1"></div><div class="hex h2"></div>
     <span class="titleBee">💰</span>
     <h1>GYPSIE<small>GAME</small></h1>
-    <div class="tagline">Четыре локации · Квесты Газипура · Рой из 15 шмелей</div>
+    <div class="tagline">Пять локаций · Квесты Газипура · Рой из 20 шмелей · Непал на горе</div>
     <div class="ctrls">
       <span class="key"><b>WASD</b> — движение</span>
       <span class="key"><b>SHIFT</b> — бег</span>
@@ -273,10 +273,11 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const SKEY='gypsieGameSaveV2';
 let capacity=100,speedBonus=0,gatherMult=1,harvestInterval=.24,beeTimerMult=1;
 let pollen=0,gold=0;
-let items={bee:2,pack:0,pack2:0,pack3:0,pack4:0,boots:0,net:0,stick:0,tea:0,teeth:0,gate2:false,gate3:false,gate4:false};
+let items={bee:2,pack:0,pack2:0,pack3:0,pack4:0,pack5:0,pack6:0,boots:0,boots2:0,net:0,net2:0,stick:0,tea:0,teeth:0,
+  gate2:false,gate3:false,gate4:false,gate5:false};
 let quest=null,lastQuest=null;
 let rewardIdx=0;
-let converting=false,sessionGold=0,convSomali=false;
+let converting=false,sessionGold=0,convLabel='';
 let elapsed=0,fullWarned=false,playerMode='block';
 let liteMode=false;
 const keys={},mouse={down:false};
@@ -284,16 +285,19 @@ const harvest={active:false,timer:0};
 const aimPoint=new THREE.Vector3();
 let hasAim=false,nearField=false,nearGateTxt=null,nearShopName=null,nearGazipur=false;
 
-const FIELD ={cx:-11,cz:0,   n:15,sp:2.2};
-const FIELD2={cx:-10,cz:-56, n:12,sp:2.2};
-const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};
-const FIELD4={cx:-8, cz:-196,n:8, sp:2.2};
-const GATE ={x:20,z:1.6,r:3.0};
-const SGATE={x:14,z:-206,r:3.0};
+const FIELD ={cx:-11,cz:0,   n:15,sp:2.2};  // Индия
+const FIELD2={cx:-10,cz:-56, n:12,sp:2.2};  // Цыганская
+const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};  // Пакистан
+const FIELD4={cx:-8, cz:-196,n:8, sp:2.2};  // Сомали
+const FIELD5={cx:-126,cz:-222,n:6,sp:2.0};  // Непал (белые цветы)
+const GATE ={x:20,z:1.6,r:3.0};             // Индийские ворота ×1
+const SGATE={x:14,z:-206,r:3.0};            // Сомалийские ворота ×2
+const FACT ={x:-125,z:-181,r:3.0};          // Непальская фабрика ×3
 const STALL1={x:24.5,z:5.5};
 const STALL2={x:17,z:-50};
+const STALL3={x:-120,z:-200};               // Непальская лавка
 const GAZI ={x:8.5,z:-116.5};
-const SOIL_TOP=0.15, DESERT_TOP=0.05;
+const SOIL_TOP=0.15, DESERT_TOP=0.05, SUMMIT_TOP=12;
 
 /* ================================================================
    1. СОХРАНЕНИЕ
@@ -320,14 +324,19 @@ function loadGame(){
         items.pack2=Math.min(3,Math.max(0,d.items.pack2|0));
         items.pack3=Math.min(3,Math.max(0,d.items.pack3|0));
         items.pack4=Math.min(2,Math.max(0,d.items.pack4|0));
+        items.pack5=Math.min(2,Math.max(0,d.items.pack5|0));
+        items.pack6=Math.min(1,Math.max(0,d.items.pack6|0));
         items.boots=Math.min(2,Math.max(0,d.items.boots|0));
+        items.boots2=Math.min(2,Math.max(0,d.items.boots2|0));
         items.net  =Math.min(2,Math.max(0,d.items.net|0));
+        items.net2 =Math.min(2,Math.max(0,d.items.net2|0));
         items.stick=Math.min(2,Math.max(0,d.items.stick|0));
         items.tea  =Math.min(2,Math.max(0,d.items.tea|0));
         items.teeth=Math.min(3,Math.max(0,d.items.teeth|0));
         items.gate2=!!d.items.gate2;
         items.gate3=!!d.items.gate3;
         items.gate4=!!d.items.gate4;
+        items.gate5=!!d.items.gate5;
       }
       lastQuest=d.lastQuest||null;
       if(d.quest&&QUESTS.find(q=>q.id===d.quest.id&&!q.locked))
@@ -338,9 +347,9 @@ function loadGame(){
   while(rewardIdx<BEE_REWARDS.length&&gold>=BEE_REWARDS[rewardIdx])rewardIdx++;
 }
 function applyItems(){
-  capacity=100+items.pack*50+items.pack2*100+items.pack3*180+items.pack4*300;
-  speedBonus=items.boots*1.2;
-  gatherMult=1+items.net*0.5+items.teeth*0.4;
+  capacity=100+items.pack*50+items.pack2*100+items.pack3*180+items.pack4*300+items.pack5*500+items.pack6*800;
+  speedBonus=items.boots*1.2+items.boots2*2;
+  gatherMult=1+items.net*0.5+items.teeth*0.4+items.net2*0.8;
   harvestInterval=.24*(1-.2*items.stick);
   beeTimerMult=1-.25*items.tea;
 }
@@ -399,7 +408,7 @@ scene.add(new THREE.HemisphereLight(0xcfefff,0x6fae4e,.9));
 const sun=new THREE.DirectionalLight(0xfff3c4,1.8);
 sun.position.set(38,55,22);sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
-Object.assign(sun.shadow.camera,{left:-60,right:60,top:60,bottom:-60,near:5,far:160});
+Object.assign(sun.shadow.camera,{left:-160,right:80,top:80,bottom:-260,near:5,far:200});
 sun.shadow.bias=-0.0006;
 scene.add(sun);
 const M=(c,o={})=>new THREE.MeshStandardMaterial({color:c,roughness:.95,metalness:0,flatShading:true,...o});
@@ -456,13 +465,30 @@ const somaliTex=(()=>{
   });
   return tex;
 })();
+function nepalFlagTexture(){
+  const {tex}=canvasTexture(512,320,c=>{
+    c.clearRect(0,0,512,320);
+    const blue='#003893',crimson='#DC143C';
+    c.fillStyle=blue;
+    c.beginPath();c.moveTo(60,310);c.lineTo(60,100);c.lineTo(340,310);c.closePath();c.fill();
+    c.beginPath();c.moveTo(60,160);c.lineTo(60,10);c.lineTo(320,160);c.closePath();c.fill();
+    c.fillStyle=crimson;
+    c.beginPath();c.moveTo(75,295);c.lineTo(75,130);c.lineTo(310,295);c.closePath();c.fill();
+    c.beginPath();c.moveTo(75,150);c.lineTo(75,30);c.lineTo(290,150);c.closePath();c.fill();
+    c.fillStyle='#fff';c.beginPath();c.arc(150,230,26,0,Math.PI*2);c.fill();
+    c.fillStyle=crimson;c.beginPath();c.arc(160,222,22,0,Math.PI*2);c.fill();
+    c.fillStyle='#fff';c.beginPath();c.arc(150,95,20,0,Math.PI*2);c.fill();
+  });
+  return tex;
+}
+const nepalTex=nepalFlagTexture();
 
 /* ================================================================
-   4. МИР: 4 зоны (последняя — пустыня)
+   4. МИР: расширенная карта (5 зон + горы на западе)
 ================================================================ */
-const ground=new THREE.Mesh(new THREE.BoxGeometry(92,3,277),
+const ground=new THREE.Mesh(new THREE.BoxGeometry(178,3,277),
   [M(0x8a5a2b),M(0x8a5a2b),M(0x67bd45),M(0x6a4321),M(0x8a5a2b),M(0x8a5a2b)]);
-ground.position.set(0,-1.5,-93.5);ground.receiveShadow=true;scene.add(ground);
+ground.position.set(-43,-1.5,-93.5);ground.receiveShadow=true;scene.add(ground);
 
 const desert=new THREE.Mesh(new THREE.BoxGeometry(92,.1,69),M(0xe8cf8f));
 desert.position.set(0,0,-197);desert.receiveShadow=true;scene.add(desert);
@@ -536,21 +562,33 @@ pathBox(18,3.2,5,-196);
   }
   scene.add(im);
 }
+// Забор (мир расширен на запад до x=-130.5)
 {
   const g=new THREE.BoxGeometry(.35,1.3,.35);
   const pos=[];
-  for(let x=-44.5;x<=44.5;x+=5.5)pos.push([x,-230.5],[x,44.5]);
-  for(let z=-230.5;z<=44.5;z+=5.5)pos.push([-44.5,z],[44.5,z]);
+  for(let x=-130.5;x<=44.5;x+=5.5)pos.push([x,-230.5],[x,44.5]);
+  for(let z=-230.5;z<=44.5;z+=5.5)pos.push([-130.5,z],[44.5,z]);
   const im=new THREE.InstancedMesh(g,M(0x9a6a33),pos.length);
   const d=new THREE.Object3D();
   pos.forEach((p,i)=>{d.position.set(p[0],.65,p[1]);d.updateMatrix();im.setMatrixAt(i,d.matrix);});
   im.castShadow=true;scene.add(im);
-  const railNS=new THREE.BoxGeometry(89,.14,.14);
+  const railNS=new THREE.BoxGeometry(175,.14,.14);
   [-230.5,44.5].forEach(z=>{[.5,.95].forEach(y=>{
-    const r=new THREE.Mesh(railNS,M(0x9a6a33));r.position.set(0,y,z);r.castShadow=true;scene.add(r);});});
+    const r=new THREE.Mesh(railNS,M(0x9a6a33));r.position.set(-43,y,z);r.castShadow=true;scene.add(r);});});
   const railEW=new THREE.BoxGeometry(.14,.14,275);
-  [-44.5,44.5].forEach(x=>{[.5,.95].forEach(y=>{
+  [-130.5,44.5].forEach(x=>{[.5,.95].forEach(y=>{
     const r=new THREE.Mesh(railEW,M(0x9a6a33));r.position.set(x,y,-93);r.castShadow=true;scene.add(r);});});
+}
+// Горная стена вдоль x=-46 (отделяет Непал), с проёмом под ворота 5
+{
+  const g=new THREE.BoxGeometry(2,5,4);
+  const mat=M(0x7d7d82);
+  const zs=[];
+  for(let z=-228;z<=42;z+=4){ if(Math.abs(z+200)<3.5)continue; zs.push(z); }
+  const im=new THREE.InstancedMesh(g,mat,zs.length);
+  const d=new THREE.Object3D();
+  zs.forEach((z,i)=>{d.position.set(-46,2.5,z);d.updateMatrix();im.setMatrixAt(i,d.matrix);});
+  im.castShadow=true;im.receiveShadow=true;scene.add(im);
 }
 function tree(x,z,s){
   const g=new THREE.Group();
@@ -564,6 +602,14 @@ function tree(x,z,s){
 }
 tree(-38,-30,1.2);tree(-34,28,1);tree(10,-36,.9);tree(36,-32,1);tree(38,30,1.15);tree(-40,8,1.1);
 tree(-38,-70,1.3);tree(36,-80,1.2);tree(-36,-45,1);tree(30,-62,1.1);tree(6,-88,1.1);
+// Деревья и камни у подножия Непала
+[[-60,-150,1],[-80,-120,1.2],[-100,-150,1],[-60,-30,.9],[-90,-60,1.1],[-115,-100,1],[-70,-220,1],[-110,-230,.9]]
+ .forEach(([x,z,s])=>tree(x,z,s));
+[[-55,-180],[-70,-140],[-95,-210],[-110,-140],[-60,-90],[-85,-230]]
+ .forEach(([x,z])=>{
+   const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.8+Math.random()*.6,0),M(0x9aa3ad));
+   r.scale.y=.6;r.position.set(x,.25,z);r.rotation.y=Math.random()*3;r.castShadow=true;scene.add(r);
+ });
 
 function pineBatch(count){
   const spots=[];let tries=0;
@@ -639,6 +685,7 @@ makeSign('ПОЛЕ ЛАХОР ←',12,-112,Math.PI/2);
 makeSign('🏜 ПУСТЫНЯ СОМАЛИ',18,-159,0);
 makeSign('СОМАЛИЙСКИЕ ВОРОТА ⬆',17.5,-176,0);
 makeSign('✨ СОМАЛИЙСКОЕ ПОЛЕ ←',11,-193,Math.PI/2);
+makeSign('🏔 НЕПАЛ ← (20 шмелей)',-38,-190,Math.PI/2);
 
 const clouds=[];
 for(let i=0;i<8;i++){
@@ -649,9 +696,44 @@ for(let i=0;i<8;i++){
     b.position.set(j*1.7-2.5+Math.random(),Math.random()*.5,Math.random()*1.5-.7);
     g.add(b);
   }
-  g.position.set(Math.random()*180-90,25+Math.random()*9,Math.random()*300-235);
+  g.position.set(Math.random()*200-140,25+Math.random()*9,Math.random()*300-235);
   g.userData.v=.8+Math.random()*1.2;
   clouds.push(g);scene.add(g);
+}
+
+/* ================================================================
+   4б. НЕПАЛЬСКАЯ ГОРА: ступени-платформы + снежная вершина
+================================================================ */
+const nepalPlatforms=[
+ {minX:-56,maxX:-46,minZ:-210,maxZ:-190,topY:1.5},
+ {minX:-66,maxX:-56,minZ:-210,maxZ:-190,topY:3},
+ {minX:-76,maxX:-66,minZ:-210,maxZ:-190,topY:4.5},
+ {minX:-86,maxX:-76,minZ:-210,maxZ:-190,topY:6},
+ {minX:-96,maxX:-86,minZ:-210,maxZ:-190,topY:7.5},
+ {minX:-106,maxX:-96,minZ:-210,maxZ:-190,topY:9},
+ {minX:-116,maxX:-106,minZ:-210,maxZ:-190,topY:10.5},
+ {minX:-132,maxX:-116,minZ:-230,maxZ:-170,topY:SUMMIT_TOP},
+];
+{
+  const stoneMat=M(0x8f8f94);
+  for(const p of nepalPlatforms){
+    const w=p.maxX-p.minX,d=p.maxZ-p.minZ;
+    const box=new THREE.Mesh(new THREE.BoxGeometry(w,p.topY,d),stoneMat);
+    box.position.set((p.minX+p.maxX)/2,p.topY/2,(p.minZ+p.maxZ)/2);
+    box.castShadow=true;box.receiveShadow=true;scene.add(box);
+  }
+  const s=nepalPlatforms[nepalPlatforms.length-1];
+  const snow=new THREE.Mesh(new THREE.BoxGeometry(s.maxX-s.minX,0.12,s.maxZ-s.minZ),M(0xffffff));
+  snow.position.set((s.minX+s.maxX)/2,s.topY+0.06,(s.minZ+s.maxZ)/2);
+  snow.receiveShadow=true;scene.add(snow);
+  // снег на верхних ступенях
+  nepalPlatforms.forEach(p=>{
+    if(p.topY>=9&&p!==s){
+      const sn=new THREE.Mesh(new THREE.BoxGeometry(p.maxX-p.minX,0.1,p.maxZ-p.minZ),M(0xf2f6ff));
+      sn.position.set((p.minX+p.maxX)/2,p.topY+0.05,(p.minZ+p.maxZ)/2);
+      sn.receiveShadow=true;scene.add(sn);
+    }
+  });
 }
 
 /* ================================================================
@@ -711,29 +793,77 @@ function cactus(x,z,s){
   const b=new THREE.Mesh(new THREE.ConeGeometry(.5,.7,5),M(0x9a7b4f));
   b.position.set(x,.35,z);b.rotation.y=Math.random()*3;b.castShadow=true;scene.add(b);
 });
-function flagPole(x,z,h,ry){
-  const g=new THREE.Group();g.position.set(x,0,z);
+function flagPole(x,z,h,ry,tex,baseY=0){
+  const g=new THREE.Group();g.position.set(x,baseY,z);
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,h,6),M(0x8a8a8a));
   pole.position.y=h/2;pole.castShadow=true;g.add(pole);
   const ball=new THREE.Mesh(new THREE.SphereGeometry(.09,6,5),M(0xffd23f));
   ball.position.y=h;g.add(ball);
   const fl=new THREE.Mesh(new THREE.PlaneGeometry(1.5,1),
-    new THREE.MeshBasicMaterial({map:somaliTex,side:THREE.DoubleSide}));
+    new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
   fl.position.set(.78,h-.55,0);fl.rotation.y=ry;g.add(fl);
   scene.add(g);
 }
-flagPole(6,-172,4.5,0);
-flagPole(2,-190,4.5,.6);
-flagPole(24,-200,5,-.4);
-flagPole(27,-212,4,1.2);
+flagPole(6,-172,4.5,0,somaliTex);
+flagPole(2,-190,4.5,.6,somaliTex);
+flagPole(24,-200,5,-.4,somaliTex);
+flagPole(27,-212,4,1.2,somaliTex);
+flagPole(-118,-228,4,0,nepalTex,SUMMIT_TOP); // флаг Непала на вершине
 
 /* ================================================================
-   6. ВОРОТА-ЗАМКИ (6 / 10 / 15 шмелей)
+   6. ВОРОТА-ЗАМКИ (6 / 10 / 15 / 20 шмелей)
 ================================================================ */
 const flags=[];
 const gates=[];
+function drawGateSign(gt){
+  const c=gt.sign.ctx;
+  c.fillStyle='#6a4321';c.fillRect(0,0,512,256);
+  c.strokeStyle='#3f2712';c.lineWidth=16;c.strokeRect(8,8,496,240);
+  c.textAlign='center';
+  if(gt.open){
+    c.fillStyle='#ffd23f';c.font='900 62px Nunito,Arial';c.fillText('Проход открыт!',256,105);
+    c.font='900 40px Nunito,Arial';c.fillText(gt.title,256,180);
+  }else{
+    c.fillStyle='#ffe9b3';c.font='900 44px Nunito,Arial';c.fillText(gt.title,256,70);
+    c.fillStyle=items.bee>=gt.req?'#9dff8a':'#ffd23f';
+    c.font='900 58px Nunito,Arial';c.fillText(`Шмели: ${items.bee} / ${gt.req}`,256,148);
+    c.fillStyle='#ffe9b3';c.font='800 32px Nunito,Arial';c.fillText('соберите рой, чтобы открыть',256,212);
+  }
+  gt.sign.tex.needsUpdate=true;
+}
+function buildBlockade(gt){
+  gt.blockade=new THREE.Group();gt.blockade.position.set(gt.x,0,gt.z);
+  function frame(zOff){
+    const f=new THREE.Group();f.position.z=zOff;
+    [-1.4,1.4].forEach(px=>{
+      const p=new THREE.Mesh(new THREE.BoxGeometry(.22,1.6,.22),M(0x8a5a2b));
+      p.position.set(px,.8,0);p.castShadow=true;f.add(p);
+    });
+    [.75,-.75].forEach(rz=>{
+      const b=new THREE.Mesh(new THREE.BoxGeometry(3.2,.2,.16),M(0xa9713a));
+      b.position.y=.85;b.rotation.z=rz;b.castShadow=true;f.add(b);
+    });
+    gt.blockade.add(f);
+  }
+  frame(.9);frame(-.9);
+  [-3,3].forEach(px=>{
+    const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.7,0),M(0x9aa3ad));
+    r.scale.y=.7;r.position.set(px,.3,0);r.castShadow=true;gt.blockade.add(r);
+  });
+  const {tex:stopTex}=canvasTexture(256,128,c=>{
+    c.fillStyle='#b3271e';c.fillRect(0,0,256,128);
+    c.strokeStyle='#fff';c.lineWidth=10;c.strokeRect(8,8,240,112);
+    c.fillStyle='#fff';c.font='900 60px Nunito,Arial';c.textAlign='center';c.textBaseline='middle';
+    c.fillText('ЗАКРЫТО',128,66);
+  });
+  const stopSign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.85),
+    new THREE.MeshBasicMaterial({map:stopTex,side:THREE.DoubleSide}));
+  stopSign.position.set(0,1.9,1);gt.blockade.add(stopSign);
+  gt.blockade.visible=!gt.open;
+  scene.add(gt.blockade);
+}
 function makeGate(x,z,req,title,flagTex,initialOpen,staticFlagTex){
-  const gt={x,z,req,title,open:initialOpen,anim:false};
+  const gt={x,z,req,title,open:initialOpen,anim:false,dir:'h'};
   const g=new THREE.BoxGeometry(2,1.7,1.5);
   const xs=[];
   for(let i=-45;i<=9.5;i+=2.1)xs.push(i);
@@ -778,52 +908,39 @@ function makeGate(x,z,req,title,flagTex,initialOpen,staticFlagTex){
     new THREE.MeshBasicMaterial({map:gt.sign.tex,side:THREE.DoubleSide}));
   sm.position.set(0,3.2,.42);arch.add(sm);
   scene.add(arch);
-  gt.updateSign=()=>{
-    const c=gt.sign.ctx;
-    c.fillStyle='#6a4321';c.fillRect(0,0,512,256);
-    c.strokeStyle='#3f2712';c.lineWidth=16;c.strokeRect(8,8,496,240);
-    c.textAlign='center';
-    if(gt.open){
-      c.fillStyle='#ffd23f';c.font='900 62px Nunito,Arial';c.fillText('Проход открыт!',256,105);
-      c.font='900 40px Nunito,Arial';c.fillText(gt.title,256,180);
-    }else{
-      c.fillStyle='#ffe9b3';c.font='900 44px Nunito,Arial';c.fillText(gt.title,256,70);
-      c.fillStyle=items.bee>=gt.req?'#9dff8a':'#ffd23f';
-      c.font='900 58px Nunito,Arial';c.fillText(`Шмели: ${items.bee} / ${gt.req}`,256,148);
-      c.fillStyle='#ffe9b3';c.font='800 32px Nunito,Arial';c.fillText('соберите рой, чтобы открыть',256,212);
-    }
-    gt.sign.tex.needsUpdate=true;
-  };
+  gt.updateSign=()=>drawGateSign(gt);
   gt.updateSign();
-  gt.blockade=new THREE.Group();gt.blockade.position.set(x,0,z);
-  function frame(zOff){
-    const f=new THREE.Group();f.position.z=zOff;
-    [-1.4,1.4].forEach(px=>{
-      const p=new THREE.Mesh(new THREE.BoxGeometry(.22,1.6,.22),M(0x8a5a2b));
-      p.position.set(px,.8,0);p.castShadow=true;f.add(p);
+  buildBlockade(gt);
+  gates.push(gt);
+  return gt;
+}
+function makeGateWest(gx,gz,req,title,flagTex,initialOpen){
+  const gt={x:gx,z:gz,req,title,open:initialOpen,anim:false,dir:'v'};
+  const arch=new THREE.Group();arch.position.set(gx,0,gz);
+  [-3.4,3.4].forEach(dz=>{
+    const p=new THREE.Mesh(new THREE.BoxGeometry(.6,4.4,.6),M(0x8a5a2b));
+    p.position.set(0,2.2,dz);p.castShadow=true;arch.add(p);
+  });
+  const beam=new THREE.Mesh(new THREE.BoxGeometry(.7,.7,7.8),M(0x6a4321));
+  beam.position.y=4.4;beam.castShadow=true;arch.add(beam);
+  if(flagTex){
+    [-3.4,3.4].forEach(dz=>{
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.2,6),M(0x8a8a8a));
+      pole.position.set(0,5.5,dz);arch.add(pole);
+      const fl=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.0),
+        new THREE.MeshBasicMaterial({map:flagTex,side:THREE.DoubleSide}));
+      fl.position.set(.66,6.1,dz);fl.rotation.y=Math.PI/2;arch.add(fl);
     });
-    [.75,-.75].forEach(rz=>{
-      const b=new THREE.Mesh(new THREE.BoxGeometry(3.2,.2,.16),M(0xa9713a));
-      b.position.y=.85;b.rotation.z=rz;b.castShadow=true;f.add(b);
-    });
-    gt.blockade.add(f);
   }
-  frame(.9);frame(-.9);
-  [-3,3].forEach(px=>{
-    const r=new THREE.Mesh(new THREE.DodecahedronGeometry(.7,0),M(0x9aa3ad));
-    r.scale.y=.7;r.position.set(px,.3,0);r.castShadow=true;gt.blockade.add(r);
-  });
-  const {tex:stopTex}=canvasTexture(256,128,c=>{
-    c.fillStyle='#b3271e';c.fillRect(0,0,256,128);
-    c.strokeStyle='#fff';c.lineWidth=10;c.strokeRect(8,8,240,112);
-    c.fillStyle='#fff';c.font='900 60px Nunito,Arial';c.textAlign='center';c.textBaseline='middle';
-    c.fillText('ЗАКРЫТО',128,66);
-  });
-  const stopSign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.85),
-    new THREE.MeshBasicMaterial({map:stopTex,side:THREE.DoubleSide}));
-  stopSign.position.set(0,1.9,1);gt.blockade.add(stopSign);
-  gt.blockade.visible=!gt.open;
-  scene.add(gt.blockade);
+  gt.sign=canvasTexture(512,256,()=>{});
+  const sm=new THREE.Mesh(new THREE.PlaneGeometry(3.6,1.8),
+    new THREE.MeshBasicMaterial({map:gt.sign.tex,side:THREE.DoubleSide}));
+  sm.position.set(.42,3.2,0);sm.rotation.y=Math.PI/2;arch.add(sm);
+  scene.add(arch);
+  gt.updateSign=()=>drawGateSign(gt);
+  gt.updateSign();
+  buildBlockade(gt);
+  gt.blockade.rotation.y=Math.PI/2;
   gates.push(gt);
   return gt;
 }
@@ -831,6 +948,7 @@ loadGame();
 makeGate(14,-22,6,'✨ Золотой луг',null,items.gate2);
 makeGate(14,-95,10,'🌲 Пакистанский лес',pakFlagTexture(),items.gate3);
 makeGate(14,-162,15,'🏜 Пустыня Сомали',null,items.gate4,somaliTex);
+makeGateWest(-46,-200,20,'🏔 Непал',nepalTex,items.gate5);
 function openGate(gt){
   gt.open=true;gt.anim=true;
   items['gate'+(gates.indexOf(gt)+2)]=true;
@@ -847,16 +965,23 @@ const solids=[
   {minX:STALL1.x-2,maxX:STALL1.x+2,minZ:STALL1.z-1.2,maxZ:STALL1.z+1.2},
   {minX:STALL2.x-2,maxX:STALL2.x+2,minZ:STALL2.z-1.2,maxZ:STALL2.z+1.2},
   {minX:18.9,maxX:22.1,minZ:-47.2,maxZ:-44},
+  // горная стена x=-46 (с проёмом под ворота 5)
+  {minX:-47.5,maxX:-44.5,minZ:-231,maxZ:-203.5},
+  {minX:-47.5,maxX:-44.5,minZ:-196.5,maxZ:45},
 ];
 for(const gt of gates){
-  solids.push({minX:-46,maxX:10.6,minZ:gt.z-.8,maxZ:gt.z+.8});
-  solids.push({minX:17.4,maxX:46,minZ:gt.z-.8,maxZ:gt.z+.8});
+  if(gt.dir==='h'){
+    solids.push({minX:-46,maxX:10.6,minZ:gt.z-.8,maxZ:gt.z+.8});
+    solids.push({minX:17.4,maxX:46,minZ:gt.z-.8,maxZ:gt.z+.8});
+  }
 }
 function resolveSolids(){
   const R=.5;
   const rects=solids.slice();
-  for(const gt of gates)if(!gt.open)
-    rects.push({minX:10.6,maxX:17.4,minZ:gt.z-1.4,maxZ:gt.z+1.4});
+  for(const gt of gates)if(!gt.open){
+    if(gt.dir==='h')rects.push({minX:gt.x-3.5,maxX:gt.x+3.5,minZ:gt.z-1.4,maxZ:gt.z+1.4});
+    else rects.push({minX:gt.x-1.4,maxX:gt.x+1.4,minZ:gt.z-3.5,maxZ:gt.z+3.5});
+  }
   for(const s of rects){
     const px=PLAYER.pos.x,pz=PLAYER.pos.z;
     if(px>s.minX-R&&px<s.maxX+R&&pz>s.minZ-R&&pz<s.maxZ+R){
@@ -871,11 +996,12 @@ function resolveSolids(){
 }
 
 /* ================================================================
-   7. ЗОЛОТО И ЦВЕТЫ (инстансы, 4 зоны)
+   7. ЗОЛОТО И ЦВЕТЫ (инстансы, 5 зон)
 ================================================================ */
 const goldMat=new THREE.MeshStandardMaterial({color:0xffcf40,metalness:.85,roughness:.28,envMapIntensity:1.2});
 const crownMat=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.75,roughness:.3,envMapIntensity:1.1});
 const flowerMat=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.6,roughness:.32,envMapIntensity:1.1});
+const whiteFlowerMat=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.2,roughness:.5,envMapIntensity:.8});
 const ITEMS={
   ingot:{value:1,c:0xffd24a},
   coins:{value:1,c:0xffe071},
@@ -908,16 +1034,16 @@ function makeCrownGeo(){
   const gem=new THREE.SphereGeometry(.07,6,5);paint(gem,0xe63956);gem.translate(0,.14,.35);parts.push(gem);
   return mergeGeometries(parts);
 }
-function makeGoldFlowerGeo(){
+function makeFlowerGeo(petalHex,centerHex){
   const parts=[];
   const stem=new THREE.CylinderGeometry(.06,.09,1.1,5);paint(stem,0x3f9e3f);stem.translate(0,.55,0);parts.push(stem);
   const leaf=new THREE.SphereGeometry(.15,5,4);leaf.scale(1.6,.4,.8);paint(leaf,0x54b74e);leaf.translate(.18,.45,0);parts.push(leaf);
   for(let i=0;i<6;i++){
-    const p=new THREE.SphereGeometry(.3,6,5);p.scale(1,.45,1);paint(p,0xffd24a);
+    const p=new THREE.SphereGeometry(.3,6,5);p.scale(1,.45,1);paint(p,petalHex);
     const a=i/6*Math.PI*2;
     p.translate(Math.cos(a)*.34,1.16,Math.sin(a)*.34);parts.push(p);
   }
-  const c=new THREE.SphereGeometry(.24,6,5);c.scale(1,.7,1);paint(c,0xff8c1a);c.translate(0,1.26,0);parts.push(c);
+  const c=new THREE.SphereGeometry(.24,6,5);c.scale(1,.7,1);paint(c,centerHex);c.translate(0,1.26,0);parts.push(c);
   return mergeGeometries(parts);
 }
 const gatherables=[];
@@ -927,7 +1053,7 @@ const instMeshes={};
   for(let r=0;r<FIELD.n;r++)for(let c=0;c<FIELD.n;c++){
     const rr=Math.random();
     const type=rr<.38?'ingot':rr<.62?'coins':rr<.78?'nugget':rr<.92?'ring':'crown';
-    data.push({kind:'gold',type,slot:0,zone:'india',
+    data.push({kind:'gold',type,slot:0,zone:'india',baseY:SOIL_TOP,
       x:FIELD.cx+(c-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4,
       z:FIELD.cz+(r-(FIELD.n-1)/2)*FIELD.sp+(Math.random()-.5)*.4,
       phase:Math.random()*6.28,baseScale:.92+Math.random()*.18,scale:1,amount:1,
@@ -940,29 +1066,36 @@ const instMeshes={};
     im.castShadow=true;im.frustumCulled=false;
     im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(im);instMeshes[t]=im;
-    list.forEach((d,i)=>{d.slot=i;gatherables.push(d);});
+    list.forEach((d,i)=>{d.slot=i;d.mesh=im;gatherables.push(d);});
   }
 }
-let flowerMesh;
+let flowerMesh,flowerMesh5;
 {
-  const list=[];
-  function addFlowerField(F,zone,value){
+  const goldList=[],whiteList=[];
+  function addFlowerField(F,zone,value,baseY,list){
     for(let r=0;r<F.n;r++)for(let c=0;c<F.n;c++){
-      list.push({kind:'flower',slot:0,zone,value,
+      list.push({kind:'flower',slot:0,zone,value,baseY,
         x:F.cx+(c-(F.n-1)/2)*F.sp+(Math.random()-.5)*.4,
         z:F.cz+(r-(F.n-1)/2)*F.sp+(Math.random()-.5)*.4,
         phase:Math.random()*6.28,baseScale:.95+Math.random()*.15,scale:1,amount:1,
         color:0xffd24a});
     }
   }
-  addFlowerField(FIELD2,'gypsy',2);
-  addFlowerField(FIELD3,'paki',3.5);
-  addFlowerField(FIELD4,'somali',4);
-  flowerMesh=new THREE.InstancedMesh(makeGoldFlowerGeo(),flowerMat,list.length);
+  addFlowerField(FIELD2,'gypsy',2,SOIL_TOP,goldList);
+  addFlowerField(FIELD3,'paki',3.5,SOIL_TOP,goldList);
+  addFlowerField(FIELD4,'somali',4,SOIL_TOP,goldList);
+  flowerMesh=new THREE.InstancedMesh(makeFlowerGeo(0xffd24a,0xff8c1a),flowerMat,goldList.length);
   flowerMesh.castShadow=true;flowerMesh.frustumCulled=false;
   flowerMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(flowerMesh);
-  list.forEach((d,i)=>{d.slot=i;gatherables.push(d);});
+  goldList.forEach((d,i)=>{d.slot=i;d.mesh=flowerMesh;gatherables.push(d);});
+
+  addFlowerField(FIELD5,'nepal',5,SUMMIT_TOP+0.15,whiteList);
+  flowerMesh5=new THREE.InstancedMesh(makeFlowerGeo(0xffffff,0xffd23f),whiteFlowerMat,whiteList.length);
+  flowerMesh5.castShadow=true;flowerMesh5.frustumCulled=false;
+  flowerMesh5.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(flowerMesh5);
+  whiteList.forEach((d,i)=>{d.slot=i;d.mesh=flowerMesh5;gatherables.push(d);});
 }
 const _dummy=new THREE.Object3D();
 let sparkAcc=0;
@@ -972,31 +1105,31 @@ function updateItems(dt){
     const target=(.32+.68*f.amount)*f.baseScale;
     f.scale+=(target-f.scale)*Math.min(1,dt*5);
     if(f.kind==='gold'){
-      _dummy.position.set(f.x,SOIL_TOP+(liteMode?0:Math.sin(elapsed*2+f.phase)*.04),f.z);
+      _dummy.position.set(f.x,f.baseY+(liteMode?0:Math.sin(elapsed*2+f.phase)*.04),f.z);
       _dummy.rotation.set(Math.sin(f.phase)*.12,liteMode?f.phase:elapsed*(.5+f.phase*.08)+f.phase,0);
     }else{
-      _dummy.position.set(f.x,SOIL_TOP,f.z);
+      _dummy.position.set(f.x,f.baseY,f.z);
       _dummy.rotation.set(0,f.phase,0);
     }
     _dummy.scale.setScalar(f.scale);
     _dummy.updateMatrix();
-    if(f.kind==='gold')instMeshes[f.type].setMatrixAt(f.slot,_dummy.matrix);
-    else flowerMesh.setMatrixAt(f.slot,_dummy.matrix);
+    f.mesh.setMatrixAt(f.slot,_dummy.matrix);
   }
   for(const t in instMeshes)instMeshes[t].instanceMatrix.needsUpdate=true;
   flowerMesh.instanceMatrix.needsUpdate=true;
+  flowerMesh5.instanceMatrix.needsUpdate=true;
   if(!liteMode){
     sparkAcc+=dt;
     if(sparkAcc>.25){
       sparkAcc=0;
       const f=gatherables[(Math.random()*gatherables.length)|0];
-      if(f.amount>.5)burst(f.x,SOIL_TOP+(f.kind==='flower'?1.5:1),f.z,0xfff6c9,1,.3,.9,1,.5);
+      if(f.amount>.5)burst(f.x,f.baseY+(f.kind==='flower'?1.5:1),f.z,0xfff6c9,1,.3,.9,1,.5);
     }
   }
 }
 
 /* ================================================================
-   8. ИНДИЙСКИЕ ВОРОТА (×1) и СОМАЛИЙСКИЕ ВОРОТА (×2)
+   8. ИНДИЙСКИЕ ВОРОТА (×1), СОМАЛИЙСКИЕ (×2) и НЕПАЛЬСКАЯ ФАБРИКА (×3)
 ================================================================ */
 let barrier=null;
 {
@@ -1094,6 +1227,50 @@ padRingSo.position.set(SGATE.x,DESERT_TOP+.05,SGATE.z);scene.add(padRingSo);
   cw.position.z=.42;barrier2.add(cw);
   scene.add(barrier2);
 }
+// Непальская фабрика ×3 (на вершине)
+let barrier3=null;
+const padMatNe=new THREE.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:.4,side:THREE.DoubleSide});
+const padNe=new THREE.Mesh(new THREE.CircleGeometry(2.8,6).rotateX(-Math.PI/2),padMatNe);
+padNe.position.set(FACT.x,SUMMIT_TOP+.04,FACT.z);scene.add(padNe);
+const padRingNe=new THREE.Mesh(new THREE.RingGeometry(2.8,3.15,6).rotateX(-Math.PI/2),
+  new THREE.MeshBasicMaterial({color:0xDC143C,transparent:true,opacity:.9,side:THREE.DoubleSide}));
+padRingNe.position.set(FACT.x,SUMMIT_TOP+.05,FACT.z);scene.add(padRingNe);
+{
+  const g=new THREE.Group();g.position.set(-125,SUMMIT_TOP,-185);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(5,3,4),M(0x9a6a33));
+  body.position.y=1.5;body.castShadow=true;g.add(body);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(5.4,.4,4.4),M(0x5b3a12));
+  roof.position.y=3.2;g.add(roof);
+  const chim=new THREE.Mesh(new THREE.CylinderGeometry(.4,.5,2.5,7),M(0x7a4a12));
+  chim.position.set(1.5,4,0);chim.castShadow=true;g.add(chim);
+  const gear=new THREE.Mesh(new THREE.TorusGeometry(.6,.18,6,12),goldMat);
+  gear.position.set(0,1.6,2.1);g.add(gear);
+  const {tex}=canvasTexture(256,96,c=>{
+    c.fillStyle='#5b3a12';c.fillRect(0,0,256,96);
+    c.fillStyle='#ffd23f';c.font='900 44px Nunito,Arial';c.textAlign='center';c.textBaseline='middle';
+    c.fillText('ФАБРИКА ×3',128,50);
+  });
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.95),new THREE.MeshBasicMaterial({map:tex}));
+  sign.position.set(0,2.4,2.2);g.add(sign);
+  scene.add(g);
+  barrier3=new THREE.Group();
+  barrier3.position.set(FACT.x,SUMMIT_TOP+1.05,FACT.z+2.9);
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(.14,.14,3.2),M(0xffffff));
+  arm.position.z=-1.6;barrier3.add(arm);
+  for(let i=0;i<3;i++){
+    const s=new THREE.Mesh(new THREE.BoxGeometry(.16,.16,.45),M(0xDC143C));
+    s.position.set(0,0,-.5-i*.95);barrier3.add(s);
+  }
+  const cw=new THREE.Mesh(new THREE.BoxGeometry(.4,.4,.6),M(0x5b3a12));
+  cw.position.z=.42;barrier3.add(cw);
+  scene.add(barrier3);
+}
+// Зоны обмена (Индия ×1 / Сомали ×2 / Непал ×3)
+const convZones=[
+  {x:GATE.x,z:GATE.z,r:GATE.r,rate:18,label:'',padMat:padMatIn,padRing:padRingIn,barrier:barrier,padY:.05},
+  {x:SGATE.x,z:SGATE.z,r:SGATE.r,rate:36,label:'(Сомали ×2)',padMat:padMatSo,padRing:padRingSo,barrier:barrier2,padY:DESERT_TOP+.05},
+  {x:FACT.x,z:FACT.z,r:FACT.r,rate:54,label:'(Непал ×3)',padMat:padMatNe,padRing:padRingNe,barrier:barrier3,padY:SUMMIT_TOP+.05},
+];
 
 /* ================================================================
    9. ЦЫГАНСКИЙ ОСОБНЯК + ТЕЛЕГА
@@ -1197,8 +1374,8 @@ const bunters=[];
    10. ЛАВКИ + ГАЗИПУР
 ================================================================ */
 let campFlame=null,campLight=null;
-function buildStall(x,z,ry,c1,c2){
-  const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;
+function buildStall(x,z,ry,c1,c2,baseY=0){
+  const g=new THREE.Group();g.position.set(x,baseY,z);g.rotation.y=ry;
   const wood=M(0x8a5a2b);
   [[-1.6,-.9],[1.6,-.9],[-1.6,.9],[1.6,.9]].forEach(([px,pz])=>{
     const p=new THREE.Mesh(new THREE.BoxGeometry(.18,2.6,.18),wood);
@@ -1230,6 +1407,7 @@ function buildStall(x,z,ry,c1,c2){
 }
 buildStall(STALL1.x,STALL1.z,Math.PI,'#ff9933','#ffffff');
 buildStall(STALL2.x,STALL2.z,0,'#c0392b','#2a9d8f');
+buildStall(STALL3.x,STALL3.z,Math.PI/2,'#DC143C','#003893',SUMMIT_TOP); // непальская
 {
   const g=new THREE.Group();g.position.set(13.5,0,-53);
   for(let i=0;i<3;i++){
@@ -1375,7 +1553,10 @@ function groundYAt(x,z){
   if(Math.abs(x-FIELD2.cx)<15.5&&Math.abs(z-FIELD2.cz)<15.5)return SOIL_TOP;
   if(Math.abs(x-FIELD3.cx)<15.5&&Math.abs(z-FIELD3.cz)<15.5)return SOIL_TOP;
   if(Math.abs(x-FIELD4.cx)<10.5&&Math.abs(z-FIELD4.cz)<10.5)return SOIL_TOP;
-  if(z<-162.5&&z>-231.5)return DESERT_TOP;
+  if(x>-46&&z<-162.5&&z>-231.5)return DESERT_TOP;
+  for(const p of nepalPlatforms){
+    if(x>=p.minX&&x<=p.maxX&&z>=p.minZ&&z<=p.maxZ)return p.topY;
+  }
   return 0;
 }
 const _f=new THREE.Vector3(),_r=new THREE.Vector3(),_m=new THREE.Vector3(),
@@ -1402,7 +1583,7 @@ function updatePlayer(dt){
   PLAYER.vel.y-=34*dt;
   if(keys.Space&&PLAYER.onGround){PLAYER.vel.y=12.5;PLAYER.onGround=false;sfx('jump');}
   PLAYER.pos.addScaledVector(PLAYER.vel,dt);
-  PLAYER.pos.x=THREE.MathUtils.clamp(PLAYER.pos.x,-43.8,43.8);
+  PLAYER.pos.x=THREE.MathUtils.clamp(PLAYER.pos.x,-129.8,43.8);
   PLAYER.pos.z=THREE.MathUtils.clamp(PLAYER.pos.z,-229.8,43.8);
   resolveSolids();
   const gy=groundYAt(PLAYER.pos.x,PLAYER.pos.z);
@@ -1487,7 +1668,7 @@ function doHarvest(){
     const g=Math.min(Math.round(f.value*gatherMult*10)/10,capacity-pollen);
     pollen+=g;gained+=g;
     f.amount=Math.max(0,f.amount-.22);
-    burst(f.x,SOIL_TOP+(f.kind==='flower'?1.2:.8)*(f.scale||1),f.z,f.color);
+    burst(f.x,f.baseY+(f.kind==='flower'?1.2:.8)*(f.scale||1),f.z,f.color);
   }
   if(gained>0){
     floatText(_camT.copy(aimPoint).add(new THREE.Vector3(0,1.5,0)),'+'+fmt(gained),'pollen');
@@ -1497,42 +1678,39 @@ function doHarvest(){
 }
 
 /* ================================================================
-   13. ОБМЕН: Индия ×1 / Сомали ×2
+   13. ОБМЕН: Индия ×1 / Сомали ×2 / Непал ×3
 ================================================================ */
 let goldAcc=0;
 function updateConvert(dt){
-  const d1=(PLAYER.pos.x-GATE.x)**2+(PLAYER.pos.z-GATE.z)**2;
-  const d2=(PLAYER.pos.x-SGATE.x)**2+(PLAYER.pos.z-SGATE.z)**2;
-  const near1=d1<GATE.r**2&&PLAYER.pos.y<1.2;
-  const near2=d2<SGATE.r**2&&PLAYER.pos.y<1.2;
-  const active=(near1||near2)&&pollen>.01;
-  if(active){
+  let activeZone=null;
+  for(const cz of convZones){
+    const d=(PLAYER.pos.x-cz.x)**2+(PLAYER.pos.z-cz.z)**2;
+    if(d<cz.r*cz.r&&pollen>.01){activeZone=cz;break;}
+  }
+  if(activeZone){
     converting=true;
-    convSomali=near2;
-    const amt=Math.min(pollen,(near2?36:18)*dt);
+    convLabel=activeZone.label;
+    const amt=Math.min(pollen,activeZone.rate*dt);
     pollen-=amt;sessionGold+=amt;gold+=amt;markDirty();
     goldAcc+=dt;
     while(goldAcc>.12){goldAcc-=.12;
-      const gx=near2?SGATE.x:GATE.x,gz=near2?SGATE.z:GATE.z;
-      burst(gx+(Math.random()-.5)*3,.2,gz+(Math.random()-.5)*3,0xffc61a,2,.5,2.4,-1,1.1);
+      burst(activeZone.x+(Math.random()-.5)*3,activeZone.padY+.2,activeZone.z+(Math.random()-.5)*3,0xffc61a,2,.5,2.4,-1,1.1);
     }
   }else{
     if(converting){
       converting=false;
-      if(sessionGold>=1){
-        toast(`🪙 Обмен завершён: +${Math.round(sessionGold)} золота${convSomali?' (Сомали ×2)':''}`);
-        sfx('ding');
-      }
-      sessionGold=0;
+      if(sessionGold>=1){toast(`🪙 Обмен завершён: +${Math.round(sessionGold)} золота ${convLabel}`);sfx('ding');}
+      sessionGold=0;convLabel='';
     }
   }
-  padMatIn.opacity=near1?.55+Math.sin(elapsed*6)*.2:.35;
-  padMatSo.opacity=near2?.55+Math.sin(elapsed*6)*.2:.35;
-  padRingIn.rotation.y+=dt*(near1?1.2:.2);
-  padRingSo.rotation.y+=dt*(near2?1.2:.2);
-  const open1=near1?1.25:0,open2=near2?1.25:0;
-  barrier.rotation.x+=(open1-barrier.rotation.x)*Math.min(1,dt*4);
-  barrier2.rotation.x+=(open2-barrier2.rotation.x)*Math.min(1,dt*4);
+  for(const cz of convZones){
+    const d=(PLAYER.pos.x-cz.x)**2+(PLAYER.pos.z-cz.z)**2;
+    const near=d<cz.r*cz.r;
+    cz.padMat.opacity=near?.55+Math.sin(elapsed*6)*.2:.35;
+    cz.padRing.rotation.y+=dt*(near?1.2:.2);
+    const open=near?1.25:0;
+    cz.barrier.rotation.x+=(open-cz.barrier.rotation.x)*Math.min(1,dt*4);
+  }
 }
 function checkBeeReward(){
   while(rewardIdx<BEE_REWARDS.length&&gold>=BEE_REWARDS[rewardIdx]){
@@ -1592,11 +1770,11 @@ class Bumble{
       _bt.set(34+Math.cos(a)*r,3.5+Math.sin(t*1.1+this.phase),-4+Math.sin(a)*r);
       g.position.lerp(_bt,1-Math.exp(-dt*1.5));
     }else if(this.state==='dive'&&this.target){
-      _bt.set(this.target.x,SOIL_TOP+(this.target.kind==='flower'?1.5:1.1),this.target.z);
+      _bt.set(this.target.x,this.target.baseY+(this.target.kind==='flower'?1.5:1.1),this.target.z);
       g.position.lerp(_bt,1-Math.exp(-dt*7));
       if(g.position.distanceTo(_bt)<.4){this.state='gather';this.gTimer=.45;}
     }else if(this.state==='gather'&&this.target){
-      const fy=SOIL_TOP+(this.target.kind==='flower'?1.4:1)+Math.sin(t*20)*.06;
+      const fy=this.target.baseY+(this.target.kind==='flower'?1.4:1)+Math.sin(t*20)*.06;
       _bt.set(this.target.x,fy,this.target.z);
       g.position.lerp(_bt,1-Math.exp(-dt*9));
       this.gTimer-=dt;
@@ -1607,8 +1785,8 @@ class Bumble{
           const b=Math.min(Math.max(2,Math.round(2*gatherMult)),capacity-pollen);
           pollen+=b;markDirty();
           questGain(f.zone,b);
-          floatText(_camT.set(f.x,SOIL_TOP+1.8,f.z),'+'+b+' 🐝','bee');
-          burst(f.x,SOIL_TOP+1.2,f.z,0xffe86b,5,1.5,1.8,4,.5);
+          floatText(_camT.set(f.x,f.baseY+1.8,f.z),'+'+b+' 🐝','bee');
+          burst(f.x,f.baseY+1.2,f.z,0xffe86b,5,1.5,1.8,4,.5);
           sfx('buzz');
         }
         this.state='follow';
@@ -1776,7 +1954,7 @@ function sfx(kind){
 }
 
 /* ================================================================
-   17. ЛАВКИ — линейка рюкзаков для быстрого фарма
+   17. ЛАВКИ — включая непальский эндгейм
 ================================================================ */
 const SHOP1=[
   {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.5,max:16},
@@ -1793,9 +1971,17 @@ const SHOP2=[
   {id:'pack4',icon:'👝',name:'Мешок «Самрат»',desc:'+300 к вместимости рюкзака',base:3000,mult:2.2,max:2},
   ...SHOP1,
 ];
+const SHOP3=[
+  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.5,max:16},
+  {id:'pack5',icon:'🎒',name:'Рюкзак «Йети»',desc:'+500 к вместимости рюкзака',base:8000,mult:2.5,max:2},
+  {id:'pack6',icon:'🧳',name:'Рюкзак «Эверест»',desc:'+800 к вместимости рюкзака',base:20000,mult:3,max:1},
+  {id:'net2',icon:'🕸',name:'Сачок «Горный»',desc:'+80% самородков за каждый сбор',base:12000,mult:2.5,max:2},
+  {id:'boots2',icon:'🥾',name:'Ботинки «Шерпа»',desc:'+2 к скорости бега',base:9000,mult:2,max:2},
+];
 const shops=[
   {name:'🕌 Индийский базар',x:STALL1.x,z:STALL1.z,list:SHOP1},
   {name:'⛺ Цыганский шатёр',x:STALL2.x,z:STALL2.z,list:SHOP2},
+  {name:'🏔 Непальская лавка',x:STALL3.x,z:STALL3.z,list:SHOP3},
 ];
 let shopOpen=false,currentShop=shops[0];
 const shopCards=document.getElementById('shopCards'),shopGold=document.getElementById('shopGold'),
@@ -1975,7 +2161,7 @@ function updateHUD(){
   }else questPanel.classList.remove('show');
   let txt,warn=false;
   if(pollen>=capacity-.5){txt='⚠️ Рюкзак полон — несите самородки к воротам обмена!';warn=true;}
-  else if(converting)txt=convSomali?'💱 Сомалийские ворота: обмен ×2…':'💱 Обмен самородков на золото…';
+  else if(converting)txt='💱 Обмен самородков на золото… '+convLabel;
   else if(nearGateTxt)txt=nearGateTxt;
   else if(nearGazipur)txt='E — Газипур: квесты и награды';
   else if(nearShopName)txt=`🛒 Нажмите E — ${nearShopName}`;
@@ -2019,7 +2205,7 @@ controls.addEventListener('lock',()=>{
   document.body.classList.add('playing');
   document.body.classList.remove('paused');
   if(!window.__introShown){window.__introShown=true;
-    toast('✨ Собирайте самородки, копите шмелей и открывайте новые земли!');}
+    toast('✨ Собирайте самородки, копите шмелей и покорите Непал!');}
   if(AC&&AC.state==='suspended')AC.resume();
 });
 controls.addEventListener('unlock',()=>{
@@ -2052,7 +2238,7 @@ function animate(){
   elapsed+=dt;
 
   if(!liteMode){
-    for(const c of clouds){c.position.x+=c.userData.v*dt;if(c.position.x>105)c.position.x=-105;}
+    for(const c of clouds){c.position.x+=c.userData.v*dt;if(c.position.x>105)c.position.x=-140;}
     updateButterflies(dt);
     for(const f of flags){
       const pos=f.mesh.geometry.attributes.position;
@@ -2100,7 +2286,8 @@ function animate(){
     nearField=(PLAYER.pos.x-FIELD.cx)**2+(PLAYER.pos.z-FIELD.cz)**2<21*21
            ||(PLAYER.pos.x-FIELD2.cx)**2+(PLAYER.pos.z-FIELD2.cz)**2<19*19
            ||(PLAYER.pos.x-FIELD3.cx)**2+(PLAYER.pos.z-FIELD3.cz)**2<19*19
-           ||(PLAYER.pos.x-FIELD4.cx)**2+(PLAYER.pos.z-FIELD4.cz)**2<14*14;
+           ||(PLAYER.pos.x-FIELD4.cx)**2+(PLAYER.pos.z-FIELD4.cz)**2<14*14
+           ||(PLAYER.pos.x-FIELD5.cx)**2+(PLAYER.pos.z-FIELD5.cz)**2<12*12;
     nearGateTxt=null;
     for(const gt of gates){
       if(!gt.open&&(PLAYER.pos.x-gt.x)**2+(PLAYER.pos.z-gt.z)**2<144){
