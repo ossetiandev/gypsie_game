@@ -273,23 +273,23 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const SKEY='gypsieGameSaveV2';
 let capacity=100,speedBonus=0,gatherMult=1,harvestInterval=.24,beeTimerMult=1;
 let pollen=0,gold=0;
-let items={bee:2,pack:0,boots:0,net:0,stick:0,tea:0,teeth:0,gate2:false,gate3:false,gate4:false};
+let items={bee:2,pack:0,pack2:0,pack3:0,pack4:0,boots:0,net:0,stick:0,tea:0,teeth:0,gate2:false,gate3:false,gate4:false};
 let quest=null,lastQuest=null;
 let rewardIdx=0;
 let converting=false,sessionGold=0,convSomali=false;
 let elapsed=0,fullWarned=false,playerMode='block';
-let liteMode=false; // режим экономии
+let liteMode=false;
 const keys={},mouse={down:false};
 const harvest={active:false,timer:0};
 const aimPoint=new THREE.Vector3();
 let hasAim=false,nearField=false,nearGateTxt=null,nearShopName=null,nearGazipur=false;
 
-const FIELD ={cx:-11,cz:0,   n:15,sp:2.2};  // Индия: Золотые пески
-const FIELD2={cx:-10,cz:-56, n:12,sp:2.2};  // Цыганская: Золотой луг
-const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};  // Пакистан: Лахор
-const FIELD4={cx:-8, cz:-196,n:8, sp:2.2};  // Сомали: маленькое поле
-const GATE ={x:20,z:1.6,r:3.0};             // Индийские ворота (обмен ×1)
-const SGATE={x:14,z:-206,r:3.0};            // Сомалийские ворота (обмен ×2)
+const FIELD ={cx:-11,cz:0,   n:15,sp:2.2};
+const FIELD2={cx:-10,cz:-56, n:12,sp:2.2};
+const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};
+const FIELD4={cx:-8, cz:-196,n:8, sp:2.2};
+const GATE ={x:20,z:1.6,r:3.0};
+const SGATE={x:14,z:-206,r:3.0};
 const STALL1={x:24.5,z:5.5};
 const STALL2={x:17,z:-50};
 const GAZI ={x:8.5,z:-116.5};
@@ -317,6 +317,9 @@ function loadGame(){
       if(d.items){
         items.bee  =Math.min(16,Math.max(1,d.items.bee|0||2));
         items.pack =Math.min(3,Math.max(0,d.items.pack|0));
+        items.pack2=Math.min(3,Math.max(0,d.items.pack2|0));
+        items.pack3=Math.min(3,Math.max(0,d.items.pack3|0));
+        items.pack4=Math.min(2,Math.max(0,d.items.pack4|0));
         items.boots=Math.min(2,Math.max(0,d.items.boots|0));
         items.net  =Math.min(2,Math.max(0,d.items.net|0));
         items.stick=Math.min(2,Math.max(0,d.items.stick|0));
@@ -335,7 +338,7 @@ function loadGame(){
   while(rewardIdx<BEE_REWARDS.length&&gold>=BEE_REWARDS[rewardIdx])rewardIdx++;
 }
 function applyItems(){
-  capacity=100+items.pack*50;
+  capacity=100+items.pack*50+items.pack2*100+items.pack3*180+items.pack4*300;
   speedBonus=items.boots*1.2;
   gatherMult=1+items.net*0.5+items.teeth*0.4;
   harvestInterval=.24*(1-.2*items.stick);
@@ -1773,11 +1776,12 @@ function sfx(kind){
 }
 
 /* ================================================================
-   17. ЛАВКИ
+   17. ЛАВКИ — линейка рюкзаков для быстрого фарма
 ================================================================ */
 const SHOP1=[
-  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.6,max:16},
+  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.5,max:16},
   {id:'pack',icon:'🎒',name:'Рюкзак «Махараджа»',desc:'+50 к вместимости рюкзака',base:100,mult:2,max:3},
+  {id:'pack2',icon:'🎒',name:'Рюкзак «Султан»',desc:'+100 к вместимости рюкзака',base:350,mult:2,max:3},
   {id:'boots',icon:'👞',name:'Туфли джути',desc:'Быстрее бег (+1.5 к скорости)',base:80,mult:2,max:2},
   {id:'net',icon:'🪺',name:'Сеть «Дивали»',desc:'+50% самородков за каждый сбор',base:150,mult:2.2,max:2},
 ];
@@ -1785,6 +1789,8 @@ const SHOP2=[
   {id:'stick',icon:'🪄',name:'Цыганская палка',desc:'Скорость сбора +25% за уровень',base:120,mult:2,max:2},
   {id:'tea', icon:'🍵',name:'Цыганский чай',desc:'Перезарядка шмелей на 25% быстрее',base:140,mult:2,max:2},
   {id:'teeth',icon:'🦷',name:'Золотые зубки',desc:'+40% к сбору золота за уровень',base:160,mult:2,max:3},
+  {id:'pack3',icon:'🎒',name:'Рюкзак «Барон»',desc:'+180 к вместимости рюкзака',base:1200,mult:2,max:3},
+  {id:'pack4',icon:'👝',name:'Мешок «Самрат»',desc:'+300 к вместимости рюкзака',base:3000,mult:2.2,max:2},
   ...SHOP1,
 ];
 const shops=[
@@ -2026,7 +2032,7 @@ document.getElementById('playBtn').addEventListener('click',e=>{
   initAudio();controls.lock();e.target.blur();
 });
 document.getElementById('pauseScreen').addEventListener('click',e=>{
-  if(e.target.closest('#pauseLiteBtn'))return; // эконом не продолжает игру
+  if(e.target.closest('#pauseLiteBtn'))return;
   controls.lock();
 });
 addEventListener('beforeunload',()=>saveGame());
