@@ -203,7 +203,7 @@
     <div class="hex h1"></div><div class="hex h2"></div>
     <span class="titleBee">💰</span>
     <h1>GYPSIE<small>GAME</small></h1>
-    <div class="tagline">Пять локаций · Квесты Газипура · Рой из 20 шмелей · Непал на горе</div>
+    <div class="tagline">Пять локаций · Квесты Газипура · Элитные шмели · Непал на горе</div>
     <div class="ctrls">
       <span class="key"><b>WASD</b> — движение</span>
       <span class="key"><b>SHIFT</b> — бег</span>
@@ -214,7 +214,7 @@
       <span class="key"><b>ESC</b> — пауза</span>
     </div>
     <button class="btn" id="playBtn">▶ ИГРАТЬ</button>
-    <div class="foot">💾 Прогресс сохраняется автоматически · персонаж: files/male.glb · <a id="resetBtn">сбросить сохранение</a></div>
+    <div class="foot">💾 Прогресс сохраняется автоматически · персонаж: files/male.glb · Газипур: files/gaz.glb · <a id="resetBtn">сбросить сохранение</a></div>
   </div>
 </div>
 
@@ -274,7 +274,7 @@ const SKEY='gypsieGameSaveV2';
 let capacity=100,speedBonus=0,gatherMult=1,harvestInterval=.24,beeTimerMult=1;
 let pollen=0,gold=0;
 let items={bee:2,pack:0,pack2:0,pack3:0,pack4:0,pack5:0,pack6:0,boots:0,boots2:0,net:0,net2:0,stick:0,tea:0,teeth:0,
-  gate2:false,gate3:false,gate4:false,gate5:false};
+  questsDone:0,gate2:false,gate3:false,gate4:false,gate5:false};
 let quest=null,lastQuest=null;
 let rewardIdx=0;
 let converting=false,sessionGold=0,convLabel='';
@@ -285,24 +285,24 @@ const harvest={active:false,timer:0};
 const aimPoint=new THREE.Vector3();
 let hasAim=false,nearField=false,nearGateTxt=null,nearShopName=null,nearGazipur=false;
 
-const FIELD ={cx:-11,cz:0,   n:15,sp:2.2};  // Индия
-const FIELD2={cx:-10,cz:-56, n:12,sp:2.2};  // Цыганская
-const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};  // Пакистан
-const FIELD4={cx:-8, cz:-196,n:8, sp:2.2};  // Сомали
-const FIELD5={cx:-126,cz:-222,n:6,sp:2.0};  // Непал (белые цветы)
-const GATE ={x:20,z:1.6,r:3.0};             // Индийские ворота ×1
-const SGATE={x:14,z:-206,r:3.0};            // Сомалийские ворота ×2
-const FACT ={x:-125,z:-181,r:3.0};          // Непальская фабрика ×3
+const FIELD ={cx:-11,cz:0,   n:15,sp:2.2};
+const FIELD2={cx:-10,cz:-56, n:12,sp:2.2};
+const FIELD3={cx:-9, cz:-118,n:12,sp:2.2};
+const FIELD4={cx:-8, cz:-196,n:8, sp:2.2};
+const FIELD5={cx:-126,cz:-222,n:6,sp:2.0};
+const GATE ={x:20,z:1.6,r:3.0};
+const SGATE={x:14,z:-206,r:3.0};
+const FACT ={x:-125,z:-181,r:3.0};
 const STALL1={x:24.5,z:5.5};
 const STALL2={x:17,z:-50};
-const STALL3={x:-120,z:-200};               // Непальская лавка
+const STALL3={x:-120,z:-200};
 const GAZI ={x:8.5,z:-116.5};
-const SOIL_TOP=0.15, DESERT_TOP=0.05, SUMMIT_TOP=12;
+const SOIL_TOP=0.15, DESERT_TOP=0.05, SUMMIT_TOP=28; // НОВАЯ ВЫСОТА ГОРЫ
 
 /* ================================================================
    1. СОХРАНЕНИЕ
 ================================================================ */
-const BEE_REWARDS=[40,120,300,600,1000,1600,2400,3400];
+const BEE_REWARDS=[40,120,300,600,1000,1600,2400,3400,5000,7000,10000,14000];
 let saveDirty=false,saveTimer=0;
 function saveGame(){
   try{
@@ -319,7 +319,7 @@ function loadGame(){
       pollen=Math.min(Math.max(0,+d.pollen||0),100);
       liteMode=!!d.lite;
       if(d.items){
-        items.bee  =Math.min(16,Math.max(1,d.items.bee|0||2));
+        items.bee  =Math.min(20,Math.max(1,d.items.bee|0||2));
         items.pack =Math.min(3,Math.max(0,d.items.pack|0));
         items.pack2=Math.min(3,Math.max(0,d.items.pack2|0));
         items.pack3=Math.min(3,Math.max(0,d.items.pack3|0));
@@ -333,6 +333,7 @@ function loadGame(){
         items.stick=Math.min(2,Math.max(0,d.items.stick|0));
         items.tea  =Math.min(2,Math.max(0,d.items.tea|0));
         items.teeth=Math.min(3,Math.max(0,d.items.teeth|0));
+        items.questsDone=Math.max(0,d.items.questsDone|0);
         items.gate2=!!d.items.gate2;
         items.gate3=!!d.items.gate3;
         items.gate4=!!d.items.gate4;
@@ -393,7 +394,7 @@ const fmt=n=>Number.isInteger(n)?n:String(Math.round(n*10)/10);
 ================================================================ */
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x8fd9ff);
-scene.fog=new THREE.Fog(0x8fd9ff,80,215);
+scene.fog=new THREE.Fog(0x8fd9ff,80,260);
 const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,400);
 camera.rotation.order='YXZ';
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
@@ -562,7 +563,6 @@ pathBox(18,3.2,5,-196);
   }
   scene.add(im);
 }
-// Забор (мир расширен на запад до x=-130.5)
 {
   const g=new THREE.BoxGeometry(.35,1.3,.35);
   const pos=[];
@@ -579,7 +579,6 @@ pathBox(18,3.2,5,-196);
   [-130.5,44.5].forEach(x=>{[.5,.95].forEach(y=>{
     const r=new THREE.Mesh(railEW,M(0x9a6a33));r.position.set(x,y,-93);r.castShadow=true;scene.add(r);});});
 }
-// Горная стена вдоль x=-46 (отделяет Непал), с проёмом под ворота 5
 {
   const g=new THREE.BoxGeometry(2,5,4);
   const mat=M(0x7d7d82);
@@ -602,7 +601,6 @@ function tree(x,z,s){
 }
 tree(-38,-30,1.2);tree(-34,28,1);tree(10,-36,.9);tree(36,-32,1);tree(38,30,1.15);tree(-40,8,1.1);
 tree(-38,-70,1.3);tree(36,-80,1.2);tree(-36,-45,1);tree(30,-62,1.1);tree(6,-88,1.1);
-// Деревья и камни у подножия Непала
 [[-60,-150,1],[-80,-120,1.2],[-100,-150,1],[-60,-30,.9],[-90,-60,1.1],[-115,-100,1],[-70,-220,1],[-110,-230,.9]]
  .forEach(([x,z,s])=>tree(x,z,s));
 [[-55,-180],[-70,-140],[-95,-210],[-110,-140],[-60,-90],[-85,-230]]
@@ -702,16 +700,16 @@ for(let i=0;i<8;i++){
 }
 
 /* ================================================================
-   4б. НЕПАЛЬСКАЯ ГОРА: ступени-платформы + снежная вершина
+   4б. НЕПАЛЬСКАЯ ГОРА: высокая лестница + снежная вершина + пики
 ================================================================ */
 const nepalPlatforms=[
- {minX:-56,maxX:-46,minZ:-210,maxZ:-190,topY:1.5},
- {minX:-66,maxX:-56,minZ:-210,maxZ:-190,topY:3},
- {minX:-76,maxX:-66,minZ:-210,maxZ:-190,topY:4.5},
- {minX:-86,maxX:-76,minZ:-210,maxZ:-190,topY:6},
- {minX:-96,maxX:-86,minZ:-210,maxZ:-190,topY:7.5},
- {minX:-106,maxX:-96,minZ:-210,maxZ:-190,topY:9},
- {minX:-116,maxX:-106,minZ:-210,maxZ:-190,topY:10.5},
+ {minX:-56,maxX:-46,minZ:-210,maxZ:-190,topY:3.5},
+ {minX:-67,maxX:-56,minZ:-210,maxZ:-190,topY:7},
+ {minX:-78,maxX:-67,minZ:-210,maxZ:-190,topY:10.5},
+ {minX:-89,maxX:-78,minZ:-210,maxZ:-190,topY:14},
+ {minX:-100,maxX:-89,minZ:-210,maxZ:-190,topY:17.5},
+ {minX:-111,maxX:-100,minZ:-210,maxZ:-190,topY:21},
+ {minX:-116,maxX:-111,minZ:-210,maxZ:-190,topY:24.5},
  {minX:-132,maxX:-116,minZ:-230,maxZ:-170,topY:SUMMIT_TOP},
 ];
 {
@@ -726,15 +724,25 @@ const nepalPlatforms=[
   const snow=new THREE.Mesh(new THREE.BoxGeometry(s.maxX-s.minX,0.12,s.maxZ-s.minZ),M(0xffffff));
   snow.position.set((s.minX+s.maxX)/2,s.topY+0.06,(s.minZ+s.maxZ)/2);
   snow.receiveShadow=true;scene.add(snow);
-  // снег на верхних ступенях
   nepalPlatforms.forEach(p=>{
-    if(p.topY>=9&&p!==s){
+    if(p.topY>=17.5&&p!==s){
       const sn=new THREE.Mesh(new THREE.BoxGeometry(p.maxX-p.minX,0.1,p.maxZ-p.minZ),M(0xf2f6ff));
       sn.position.set((p.minX+p.maxX)/2,p.topY+0.05,(p.minZ+p.maxZ)/2);
       sn.receiveShadow=true;scene.add(sn);
     }
   });
 }
+// Декоративные заснеженные пики вокруг горы
+function mountainPeak(x,z,r,h,color){
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),M(color));
+  cone.position.set(x,h/2,z);cone.castShadow=true;cone.receiveShadow=true;scene.add(cone);
+  const cap=new THREE.Mesh(new THREE.ConeGeometry(r*0.35,h*0.28,7),M(0xffffff));
+  cap.position.set(x,h-h*0.14,z);cap.castShadow=true;scene.add(cap);
+}
+mountainPeak(-126,-160,24,34,0x8f8f94);
+mountainPeak(-98,-150,16,22,0x9a9aa0);
+mountainPeak(-64,-148,18,24,0x8f8f94);
+mountainPeak(-110,-140,13,18,0x9a9aa0);
 
 /* ================================================================
    5. ПУСТЫННЫЙ ДЕКОР: корабли, кактусы, дюны, флаги Сомали
@@ -808,7 +816,7 @@ flagPole(6,-172,4.5,0,somaliTex);
 flagPole(2,-190,4.5,.6,somaliTex);
 flagPole(24,-200,5,-.4,somaliTex);
 flagPole(27,-212,4,1.2,somaliTex);
-flagPole(-118,-228,4,0,nepalTex,SUMMIT_TOP); // флаг Непала на вершине
+flagPole(-118,-228,4,0,nepalTex,SUMMIT_TOP);
 
 /* ================================================================
    6. ВОРОТА-ЗАМКИ (6 / 10 / 15 / 20 шмелей)
@@ -965,7 +973,6 @@ const solids=[
   {minX:STALL1.x-2,maxX:STALL1.x+2,minZ:STALL1.z-1.2,maxZ:STALL1.z+1.2},
   {minX:STALL2.x-2,maxX:STALL2.x+2,minZ:STALL2.z-1.2,maxZ:STALL2.z+1.2},
   {minX:18.9,maxX:22.1,minZ:-47.2,maxZ:-44},
-  // горная стена x=-46 (с проёмом под ворота 5)
   {minX:-47.5,maxX:-44.5,minZ:-231,maxZ:-203.5},
   {minX:-47.5,maxX:-44.5,minZ:-196.5,maxZ:45},
 ];
@@ -1227,7 +1234,6 @@ padRingSo.position.set(SGATE.x,DESERT_TOP+.05,SGATE.z);scene.add(padRingSo);
   cw.position.z=.42;barrier2.add(cw);
   scene.add(barrier2);
 }
-// Непальская фабрика ×3 (на вершине)
 let barrier3=null;
 const padMatNe=new THREE.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:.4,side:THREE.DoubleSide});
 const padNe=new THREE.Mesh(new THREE.CircleGeometry(2.8,6).rotateX(-Math.PI/2),padMatNe);
@@ -1265,7 +1271,6 @@ padRingNe.position.set(FACT.x,SUMMIT_TOP+.05,FACT.z);scene.add(padRingNe);
   cw.position.z=.42;barrier3.add(cw);
   scene.add(barrier3);
 }
-// Зоны обмена (Индия ×1 / Сомали ×2 / Непал ×3)
 const convZones=[
   {x:GATE.x,z:GATE.z,r:GATE.r,rate:18,label:'',padMat:padMatIn,padRing:padRingIn,barrier:barrier,padY:.05},
   {x:SGATE.x,z:SGATE.z,r:SGATE.r,rate:36,label:'(Сомали ×2)',padMat:padMatSo,padRing:padRingSo,barrier:barrier2,padY:DESERT_TOP+.05},
@@ -1371,7 +1376,7 @@ const bunters=[];
 }
 
 /* ================================================================
-   10. ЛАВКИ + ГАЗИПУР
+   10. ЛАВКИ + ГАЗИПУР (модель files/gaz.glb с запасной)
 ================================================================ */
 let campFlame=null,campLight=null;
 function buildStall(x,z,ry,c1,c2,baseY=0){
@@ -1407,7 +1412,7 @@ function buildStall(x,z,ry,c1,c2,baseY=0){
 }
 buildStall(STALL1.x,STALL1.z,Math.PI,'#ff9933','#ffffff');
 buildStall(STALL2.x,STALL2.z,0,'#c0392b','#2a9d8f');
-buildStall(STALL3.x,STALL3.z,Math.PI/2,'#DC143C','#003893',SUMMIT_TOP); // непальская
+buildStall(STALL3.x,STALL3.z,Math.PI/2,'#DC143C','#003893',SUMMIT_TOP);
 {
   const g=new THREE.Group();g.position.set(13.5,0,-53);
   for(let i=0;i<3;i++){
@@ -1423,26 +1428,30 @@ buildStall(STALL3.x,STALL3.z,Math.PI/2,'#DC143C','#003893',SUMMIT_TOP); // не�
     rug.position.set(x,.03,z);rug.rotation.y=ry;rug.receiveShadow=true;scene.add(rug);
   });
 }
-const gaz={g:null,aL:null,aR:null,head:null};
-let gazMarker;
-{
-  const g=new THREE.Group();g.position.set(GAZI.x,0,GAZI.z);
+// Коврик Газипура (всегда есть, отдельно от модели)
+const gazRug=new THREE.Mesh(new THREE.BoxGeometry(2.6,.05,2),M(0x7a3b52));
+gazRug.position.set(GAZI.x,.03,GAZI.z);gazRug.receiveShadow=true;scene.add(gazRug);
+
+const gaz={g:new THREE.Group(),aL:null,aR:null,head:null,isGlb:false,mixer:null};
+gaz.g.position.set(GAZI.x,0,GAZI.z);
+scene.add(gaz.g);
+function buildGazFallback(){
   const kurta=M(0x2a9d8f),vest=M(0xc0392b),skin=M(0xd9a066),dark=M(0x3a2a1a);
   function limb(w,h,dp,mat,px,py){
     const grp=new THREE.Group();grp.position.set(px,py,0);
     const geo=new THREE.BoxGeometry(w,h,dp);geo.translate(0,-h/2,0);
-    const m=new THREE.Mesh(geo,mat);m.castShadow=true;grp.add(m);g.add(grp);return grp;
+    const m=new THREE.Mesh(geo,mat);m.castShadow=true;grp.add(m);gaz.g.add(grp);return grp;
   }
   limb(.34,.85,.34,dark,-.24,.88);
   limb(.34,.85,.34,dark,.24,.88);
   gaz.aL=limb(.28,.85,.28,kurta,-.66,1.72);
   gaz.aR=limb(.28,.85,.28,kurta,.66,1.72);
   const body=new THREE.Mesh(new THREE.BoxGeometry(.95,1.05,.5),kurta);
-  body.position.y=1.38;body.castShadow=true;g.add(body);
+  body.position.y=1.38;body.castShadow=true;gaz.g.add(body);
   const v=new THREE.Mesh(new THREE.BoxGeometry(.97,.7,.52),vest);
-  v.position.y=1.5;g.add(v);
+  v.position.y=1.5;gaz.g.add(v);
   const head=new THREE.Mesh(new THREE.BoxGeometry(.85,.85,.85),skin);
-  head.position.y=2.4;head.castShadow=true;g.add(head);
+  head.position.y=2.4;head.castShadow=true;gaz.g.add(head);
   gaz.head=head;
   const eM=M(0x222222);
   [-.18,.18].forEach(x=>{
@@ -1455,11 +1464,24 @@ let gazMarker;
   cap.position.y=.55;head.add(cap);
   const capTop=new THREE.Mesh(new THREE.CylinderGeometry(.42,.5,.12,8),M(0x4a3826));
   capTop.position.y=.74;head.add(capTop);
-  const rug=new THREE.Mesh(new THREE.BoxGeometry(2.6,.05,2),M(0x7a3b52));
-  rug.position.y=.03;rug.receiveShadow=true;g.add(rug);
-  scene.add(g);
-  gaz.g=g;
 }
+new GLTFLoader().load('files/gaz.glb',(gltf)=>{
+  const m=gltf.scene;
+  const size=new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3());
+  m.scale.setScalar(2.4/Math.max(size.y,.001));
+  const box=new THREE.Box3().setFromObject(m);
+  m.position.set(-(box.min.x+box.max.x)/2,-box.min.y,-(box.min.z+box.max.z)/2);
+  m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; } });
+  gaz.g.clear();
+  gaz.g.add(m);
+  gaz.isGlb=true;
+  if(gltf.animations&&gltf.animations.length){
+    gaz.mixer=new THREE.AnimationMixer(m);
+    gaz.mixer.clipAction(gltf.animations[0]).play();
+  }
+  toast('🧔 Газипур прибыл!');
+},undefined,()=>{ buildGazFallback(); });
+
 function markerTex(ch,bg){
   const {tex}=canvasTexture(128,128,c=>{
     c.fillStyle=bg;c.beginPath();c.arc(64,64,52,0,Math.PI*2);c.fill();
@@ -1723,7 +1745,7 @@ function checkBeeReward(){
 }
 
 /* ================================================================
-   14. ШМЕЛИ
+   14. ШМЕЛИ (+ элитные за квесты)
 ================================================================ */
 const bumbleBody=new THREE.SphereGeometry(.42,10,8),
       bumbleTail=new THREE.SphereGeometry(.3,8,6),
@@ -1735,29 +1757,38 @@ const bumbleBody=new THREE.SphereGeometry(.42,10,8),
 const fuzzY=new THREE.MeshStandardMaterial({color:0xf5c542,roughness:1,flatShading:true}),
       fuzzO=new THREE.MeshStandardMaterial({color:0xff9a3d,roughness:1,flatShading:true}),
       fuzzB=new THREE.MeshStandardMaterial({color:0x2b2b2b,roughness:.9}),
+      fuzzGold=new THREE.MeshStandardMaterial({color:0xffd700,roughness:.5,metalness:.6,flatShading:true}),
       wingM=new THREE.MeshStandardMaterial({color:0xdfefff,transparent:true,opacity:.65,side:THREE.DoubleSide,roughness:.3});
-function buildBumble(){
+function buildBumble(isElite){
   const g=new THREE.Group();
-  const body=new THREE.Mesh(bumbleBody,fuzzY);body.scale.set(1,.9,1.3);body.castShadow=true;g.add(body);
+  const body=new THREE.Mesh(bumbleBody,isElite?fuzzGold:fuzzY);
+  body.scale.set(1,.9,1.3);body.castShadow=true;g.add(body);
   const b1=new THREE.Mesh(bandGeo,fuzzB);b1.position.z=-.12;g.add(b1);
   const b2=new THREE.Mesh(bandGeo,fuzzB);b2.position.z=-.38;b2.scale.setScalar(.85);g.add(b2);
-  const tail=new THREE.Mesh(bumbleTail,fuzzO);tail.position.z=-.58;g.add(tail);
+  const tail=new THREE.Mesh(bumbleTail,isElite?fuzzGold:fuzzO);tail.position.z=-.58;g.add(tail);
   const head=new THREE.Mesh(bumbleHead,fuzzB);head.position.z=.55;g.add(head);
   const a1=new THREE.Mesh(antGeo,fuzzB);a1.position.set(-.12,.32,.72);a1.rotation.x=-.6;g.add(a1);
   const a2=new THREE.Mesh(antGeo,fuzzB);a2.position.set(.12,.32,.72);a2.rotation.x=-.6;g.add(a2);
   const wl=new THREE.Mesh(wingGeoL,wingM);wl.position.set(0,.4,-.05);g.add(wl);
   const wr=new THREE.Mesh(wingGeoR,wingM);wr.position.set(0,.4,-.05);g.add(wr);
-  g.scale.setScalar(1.1);
+  if(isElite){
+    const crown=new THREE.Mesh(new THREE.CylinderGeometry(.1,.16,.14,6),goldMat);
+    crown.position.set(0,.5,.4);g.add(crown);
+  }
+  g.scale.setScalar(isElite?1.25:1.1);
   return {g,wl,wr};
 }
 const _bt=new THREE.Vector3(),_bdir=new THREE.Vector3();
 const playerBumbles=[];
 class Bumble{
-  constructor(mode){
-    const b=buildBumble();
+  constructor(mode,isElite=false){
+    const b=buildBumble(isElite);
     this.group=b.g;this.wingL=b.wl;this.wingR=b.wr;
-    this.mode=mode;this.phase=Math.random()*Math.PI*2;
-    this.state='follow';this.timer=(1+Math.random()*2)*beeTimerMult;this.gTimer=0;
+    this.mode=mode;this.isElite=isElite;
+    this.phase=Math.random()*Math.PI*2;
+    this.state='follow';
+    this.timer=(1+Math.random()*2)*beeTimerMult*(isElite?0.6:1);
+    this.gTimer=0;
     this.target=null;
     this.prev=this.group.position.clone();
     this.group.position.set(GATE.x+(Math.random()-.5)*8,3,GATE.z+(Math.random()-.5)*8);
@@ -1782,15 +1813,16 @@ class Bumble{
         const f=this.target;
         f.amount=Math.max(0,f.amount-.12);
         if(pollen<capacity){
-          const b=Math.min(Math.max(2,Math.round(2*gatherMult)),capacity-pollen);
+          const base=this.isElite?3:2;
+          const b=Math.min(Math.max(base,Math.round(base*gatherMult)),capacity-pollen);
           pollen+=b;markDirty();
           questGain(f.zone,b);
-          floatText(_camT.set(f.x,f.baseY+1.8,f.z),'+'+b+' 🐝','bee');
-          burst(f.x,f.baseY+1.2,f.z,0xffe86b,5,1.5,1.8,4,.5);
+          floatText(_camT.set(f.x,f.baseY+1.8,f.z),'+'+b+(this.isElite?' 🌟':' 🐝'),'bee');
+          burst(f.x,f.baseY+1.2,f.z,this.isElite?0xffd700:0xffe86b,5,1.5,1.8,4,.5);
           sfx('buzz');
         }
         this.state='follow';
-        this.timer=(2+Math.random()*2.5)*beeTimerMult;
+        this.timer=(2+Math.random()*2.5)*beeTimerMult*(this.isElite?0.6:1);
       }
     }else{
       const a=t*.8+playerBumbles.indexOf(this)*2.1+this.phase;
@@ -1805,7 +1837,7 @@ class Bumble{
           if(d<bd&&f.amount>.15){bd=d;best=f;}
         }
         if(best){this.target=best;this.state='dive';}
-        else this.timer=.6*beeTimerMult;
+        else this.timer=.6*beeTimerMult*(this.isElite?0.6:1);
       }
     }
     _bdir.subVectors(g.position,this.prev);
@@ -1817,7 +1849,9 @@ class Bumble{
     this.wingL.rotation.z=.3+flap;this.wingR.rotation.z=-.3-flap;
   }
 }
-function spawnBumble(){playerBumbles.push(new Bumble('follow'));}
+function spawnBumble(){playerBumbles.push(new Bumble('follow',false));}
+function spawnEliteBumble(){playerBumbles.push(new Bumble('follow',true));}
+function eliteCount(){return Math.floor(items.questsDone/10);}
 const homeBumbles=[new Bumble('home'),new Bumble('home'),new Bumble('home')];
 
 /* ================================================================
@@ -1957,7 +1991,7 @@ function sfx(kind){
    17. ЛАВКИ — включая непальский эндгейм
 ================================================================ */
 const SHOP1=[
-  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.5,max:16},
+  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.3,max:20},
   {id:'pack',icon:'🎒',name:'Рюкзак «Махараджа»',desc:'+50 к вместимости рюкзака',base:100,mult:2,max:3},
   {id:'pack2',icon:'🎒',name:'Рюкзак «Султан»',desc:'+100 к вместимости рюкзака',base:350,mult:2,max:3},
   {id:'boots',icon:'👞',name:'Туфли джути',desc:'Быстрее бег (+1.5 к скорости)',base:80,mult:2,max:2},
@@ -1972,7 +2006,7 @@ const SHOP2=[
   ...SHOP1,
 ];
 const SHOP3=[
-  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.5,max:16},
+  {id:'bee', icon:'🐝',name:'Шмель «Раджа»',desc:'Верный шмель приносит бонусные самородки',base:50,mult:1.3,max:20},
   {id:'pack5',icon:'🎒',name:'Рюкзак «Йети»',desc:'+500 к вместимости рюкзака',base:8000,mult:2.5,max:2},
   {id:'pack6',icon:'🧳',name:'Рюкзак «Эверест»',desc:'+800 к вместимости рюкзака',base:20000,mult:3,max:1},
   {id:'net2',icon:'🕸',name:'Сачок «Горный»',desc:'+80% самородков за каждый сбор',base:12000,mult:2.5,max:2},
@@ -2041,7 +2075,7 @@ document.getElementById('shopBtn').addEventListener('click',()=>{
 document.getElementById('shopClose').addEventListener('click',closeShop);
 
 /* ================================================================
-   18. ДИАЛОГ ГАЗИПУРА
+   18. ДИАЛОГ ГАЗИПУРА (+ счётчик квестов -> элитные шмели)
 ================================================================ */
 let talkOpen=false,talkMode='offer',talkOffer=null;
 const talkText=document.getElementById('talkText'),
@@ -2051,7 +2085,7 @@ function refreshTalk(){
   if(!quest){
     talkOffer=pickQuest();
     talkMode='offer';
-    talkText.innerHTML=`Есть работёнка, друг: <b>«${talkOffer.name}»</b>.<br>${talkOffer.desc}<br>Заплачу чистым золотом: <b>🪙 ${talkOffer.reward}</b>.`;
+    talkText.innerHTML=`Есть работёнка, друг: <b>«${talkOffer.name}»</b>.<br>${talkOffer.desc}<br>Заплачу чистым золотом: <b>🪙 ${talkOffer.reward}</b>.<br><i>Выполнено квестов: ${items.questsDone} (каждые 10 = элитный шмель 🌟)</i>`;
     talkOk.textContent='Взять квест';talkOk.style.display='';
     talkBye.textContent='Позже';talkBye.style.display='';
   }else{
@@ -2093,10 +2127,19 @@ talkOk.addEventListener('click',()=>{
     const def=qById(quest.id);
     gold+=def.reward;
     quest=null;
+    items.questsDone++;
+    markDirty();
     toast(`🪙 Газипур заплатил ${def.reward} золота!`);
-    sfx('ding');markDirty();saveGame();
+    sfx('ding');
     checkBeeReward();
+    if(items.questsDone%10===0){
+      spawnEliteBumble();
+      toast('🌟 За 10 квестов Газипур дарит ЭЛИТНОГО шмеля!');
+      sfx('unlock');
+      burst(GAZI.x,2,GAZI.z,0xffd700,20,2.5,3,4,.9);
+    }
     burst(GAZI.x,2,GAZI.z,0xffc61a,16,2.5,3,4,.9);
+    saveGame();
     updateMarker();
     refreshTalk();
   }else{
@@ -2167,7 +2210,7 @@ function updateHUD(){
   else if(nearShopName)txt=`🛒 Нажмите E — ${nearShopName}`;
   else if(harvest.active)txt='Сбор самородков… ✨';
   else if(nearField)txt='Зажмите ЛКМ рядом с золотом, чтобы собрать самородки';
-  else txt='WASD — движение · SPACE — прыжок · ЛКМ — сбор · E — лавка/Газипур · Q — эконом';
+  else txt='WASD — движение · SPACE · ЛКМ — сбор · E — лавка/Газипур · Q — эконом';
   if(txt!==shownHint){shownHint=txt;hintEl.textContent=txt;hintEl.classList.toggle('warn',warn);}
   if(pollen>=capacity-.5&&!fullWarned){fullWarned=true;toast('🎒 Рюкзак полон! Несите самородки к воротам →');}
   if(pollen<50)fullWarned=false;
@@ -2205,7 +2248,7 @@ controls.addEventListener('lock',()=>{
   document.body.classList.add('playing');
   document.body.classList.remove('paused');
   if(!window.__introShown){window.__introShown=true;
-    toast('✨ Собирайте самородки, копите шмелей и покорите Непал!');}
+    toast('✨ Собирайте самородки, делайте квесты Газипура и покорите Непал!');}
   if(AC&&AC.state==='suspended')AC.resume();
 });
 controls.addEventListener('unlock',()=>{
@@ -2227,6 +2270,7 @@ addEventListener('beforeunload',()=>saveGame());
    22. ГЛАВНЫЙ ЦИКЛ
 ================================================================ */
 for(let i=0;i<items.bee;i++)spawnBumble();
+for(let i=0;i<eliteCount();i++)spawnEliteBumble();
 updateMarker();
 applyLite();
 shownGold=-1;shownBees=-1;
@@ -2267,7 +2311,11 @@ function animate(){
       if(gt.blockade.position.y<-2.4){gt.anim=false;gt.blockade.visible=false;}
     }
   }
-  if(gaz.aL){
+  // Анимация Газипура (модель или запасной)
+  if(gaz.isGlb){
+    if(gaz.mixer)gaz.mixer.update(dt);
+    else gaz.g.rotation.y=Math.sin(elapsed*.7)*.25;
+  }else if(gaz.aL){
     gaz.aL.rotation.x=Math.sin(elapsed*1.8)*.12;
     gaz.aR.rotation.x=-Math.sin(elapsed*1.8)*.12;
     gaz.head.rotation.y=Math.sin(elapsed*.7)*.25;
