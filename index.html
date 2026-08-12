@@ -1492,7 +1492,7 @@ function markerTex(ch,bg){
   return tex;
 }
 const mkAvail=markerTex('!','#f4a300'),mkActive=markerTex('?','#4a90d9'),mkDone=markerTex('✓','#2ecc71');
-gazMarker=new THREE.Sprite(new THREE.SpriteMaterial({map:mkAvail}));
+const gazMarker=new THREE.Sprite(new THREE.SpriteMaterial({map:mkAvail}));
 gazMarker.scale.set(.85,.85,1);
 gazMarker.position.set(GAZI.x,3.3,GAZI.z);
 scene.add(gazMarker);
